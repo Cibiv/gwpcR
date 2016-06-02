@@ -1,11 +1,13 @@
 #!/usr/bin/env Rscript
 library(parallel)
+library(Rcpp)
+library(inline)
 
 CORES <- 40
 
 # GWPCR precomputed data
 GWPCR <- new.env()
-GWPCR$samples <- 1e8
+GWPCR$samples <- 1e9
 GWPCR$until.molecules <- 1e6
 GWPCR$lambda.def <- list(list(to=2, by=0.01),
                          list(to=10, by=0.1),
@@ -54,6 +56,25 @@ GWPCR$data <- list(matrix(nrow=length(GWPCR$efficiency),
 # Density estimation bandwidth
 GWPCR$bandwidth <- rep(as.numeric(NA), length(GWPCR$efficiency))
 
+simulate.cycle <- cxxfunction(signature(samples_="numeric", efficiency_="numeric"), body='
+  using namespace Rcpp;
+  NumericVector result;
+  RNGScope rngScope;  
+
+  // Arguments, and create result vector
+  const NumericVector samples = as<NumericVector>(samples_);
+  const double efficiency = as<double>(efficiency_);
+  const std::size_t n = samples.size();
+  result = NumericVector(n);
+
+  // Simulate cycle
+  for(std::size_t i=0; i < n; ++i)
+    result[i] = samples[i] + R::rbinom(samples[i], efficiency);
+
+  // Return result
+  return(result);
+', plugin='Rcpp', convention='.Call', language='C++')
+
 simulate <- function(efficiency, cycles, samples=1) {
   r <- mclapply(1:CORES, FUN=function(c) {
     # Produce one CORE-th of the total number of required samples
@@ -62,7 +83,7 @@ simulate <- function(efficiency, cycles, samples=1) {
     s.c <- rep(1, samples.c)
     for(i in 1:cycles)
       # Simulate a cycle
-      s.c <- s.c + sapply(s.c, FUN=function(z) { rbinom(n=1, size=z, prob=efficiency) })
+      s.c <- simulate.cycle(s.c, efficiency)
     s.c
   }, mc.preschedule=TRUE, mc.cores=CORES, mc.silent=FALSE)
 
