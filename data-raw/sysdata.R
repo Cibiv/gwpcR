@@ -1,15 +1,15 @@
 #!/usr/bin/env Rscript
 library(parallel)
 
-CORES <- 1
+CORES <- 40
 
 # GWPCR precomputed data
 GWPCR <- new.env()
-GWPCR$samples <- 1e3
-GWPCR$until.molecules <- 1e5
+GWPCR$samples <- 1e8
+GWPCR$until.molecules <- 1e6
 GWPCR$lambda.def <- list(list(to=2, by=0.01),
-                           list(to=10, by=0.1),
-                           list(to=50, by=1))
+                         list(to=10, by=0.1),
+                         list(to=50, by=1))
 GWPCR$efficiency.def <- list(list(to=0.05, by=0.05),
                              list(to=0.99, by=0.01))
 
@@ -51,6 +51,9 @@ GWPCR$data <- list(matrix(nrow=length(GWPCR$efficiency),
                           ncol=length(GWPCR$lambda),
                           data=as.numeric(NA)))
 
+# Density estimation bandwidth
+GWPCR$bandwidth <- rep(as.numeric(NA), length(GWPCR$efficiency))
+
 simulate <- function(efficiency, cycles, samples=1) {
   r <- mclapply(1:CORES, FUN=function(c) {
     # Produce one CORE-th of the total number of required samples
@@ -87,8 +90,10 @@ for(e in 1:length(GWPCR$efficiency)) {
   L.INC <- min(diff(GWPCR$lambda))
   stopifnot(s >= 0)
   stopifnot(s <= L.MAX)
-  l <- density(s, kernel='gaussian', adjust=2, from=0, to=L.MAX,
-               n=L.MAX/L.INC)
+  message('Efficiency=', efficiency, ': Estimating bandwidth')
+  GWPCR$bandwidth[e] <- bw.nrd0(s)
+  message('Efficiency=', efficiency, ': Estimating density using bandwidth ', GWPCR$bandwidth[e])
+  l <- density(s, kernel='gaussian', adjust=2, bw=GWPCR$bandwidth[e], from=0, to=L.MAX, n=L.MAX/L.INC)
 
   # Find indices into uniformly spaced density output that correspond to our non-uniform lambda grid
   i <- c(1, unlist(local({
@@ -110,5 +115,6 @@ for(e in 1:length(GWPCR$efficiency)) {
   GWPCR$data[[1]][e,] <- d
 
   # Save file
-  save(GWPCR, file="sysdata.rda")
+  message('Efficiency=', efficiency, ': Saving')
+  save(GWPCR, file="sysdata.rda", compress='bzip2', compression_level=9)
 }
