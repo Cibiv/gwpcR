@@ -7,7 +7,7 @@ CORES <- 40
 
 # GWPCR precomputed data
 GWPCR <- new.env()
-GWPCR$samples <- 1e8
+GWPCR$samples <- 1e9
 GWPCR$until.molecules <- 1e6
 GWPCR$lambda.def <- list(list(to=2, by=0.01),
                          list(to=10, by=0.1),
@@ -137,5 +137,5 @@ for(e in 1:length(GWPCR$efficiency)) {
 
   # Save file
   message('Efficiency=', efficiency, ': Saving')
-  save(GWPCR, file="sysdata.small.rda", compress='bzip2', compression_level=9)
+  save(GWPCR, file="sysdata.rda", compress='bzip2', compression_level=9)
 }
