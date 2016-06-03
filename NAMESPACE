@@ -1,1 +1,1 @@
-exportPattern("^[[:alpha:]]+")
+export(dgwpcr, pgwpcr, rgwpcr, gwpcr.molecules.precompute)
