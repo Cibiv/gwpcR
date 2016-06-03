@@ -137,5 +137,5 @@ for(e in 1:length(GWPCR$efficiency)) {
 
   # Save file
   message('Efficiency=', efficiency, ': Saving')
-  save(GWPCR, file="sysdata.rda", compress='bzip2', compression_level=9)
+  save(GWPCR, file="data/sysdata.big.rda", compress='bzip2', compression_level=9)
 }
