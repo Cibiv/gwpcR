@@ -15,21 +15,22 @@ rgwpcr <- function(samples, efficiency, molecules=1) {
 
   # Start with initial copy number
   s <- rep(molecules, samples)
+  if (efficiency == 1.0)
 
   if (efficiency < 1.0) {
-    if (cycles > 0) {
-      # Flip a coin for each molecule in each sample to determine whether
-      # its copied. That can be done efficiently by sampling from a binomial
-      # distribution for each sample.
-      for(i in 1:cycles) {
-        sp <- sapply(s, FUN=function(z) { rbinom(n=1, size=z, prob=efficiency) })
-        s <- s + sp
-      }
+    # Flip a coin for each molecule in each sample to determine whether
+    # its copied. That can be done efficiently by sampling from a binomial
+    # distribution for each sample.
+    for(i in 1:cycles) {
+      sp <- sapply(s, FUN=function(z) { rbinom(n=1, size=z, prob=efficiency) })
+      s <- s + sp
     }
+
+    # Scale with expected number of molecules
+    s <- s / (molecules * (1+efficiency)**cycles)
   }
 
-  # Scale with expected number of molecules
-  s / (molecules * (1+efficiency)**cycles)
+  s
 }
 
 dgwpcr <- function(lambda, efficiency, molecules=1) {
@@ -65,7 +66,7 @@ dgwpcr <- function(lambda, efficiency, molecules=1) {
     p.m <- (molecules == m)
     e <- efficiency[p.m]
     l <- lambda[p.m]
-    p.e.v <- (e > 0.0) & (e <= tail(GWPCR$efficiency, 1))
+    p.e.v <- (e >= head(GWPCR$efficiency, 1)) & (e <= tail(GWPCR$efficiency, 1))
     p.l.v <- (l >= 0) & (l <= tail(GWPCR$lambda, 1))
     p.v <- p.m & p.e.v & p.l.v
 
@@ -88,10 +89,16 @@ dgwpcr <- function(lambda, efficiency, molecules=1) {
 pgwpcr <- function(lambda, efficiency, molecules=1) {
   if (!is.numeric(lambda))
     stop('lambda must be a numeric vector')
-  if (!is.numeric(efficiency) || (length(efficiency) != 1))
-    stop('efficiency must be a numeric scalar')
+  if (!is.numeric(efficiency) || (length(efficiency) != 1) || (efficiency < 0) || (efficiency > 1))
+    stop('efficiency must be a numeric scalar within [0, 1]')
   if (!is.numeric(molecules) || (length(molecules) != 1) || (molecules != floor(molecules)) || (molecules < 1))
     stop('molecules must be a positive integral scalar')
+
+  # Handle corner-cases
+  if (efficiency == 0.0)
+    return(ifelse(lambda < 1.0, 0, 1))
+  if (efficiency == 1.0)
+    return(ifelse(lambda < 1.0, 0, 1))
 
   # Compute density at desired efficiency midpoints
   d <- dgwpcr(lambda=GWPCR$lambda, efficiency=efficiency, molecules=molecules)
@@ -102,6 +109,8 @@ pgwpcr <- function(lambda, efficiency, molecules=1) {
   # Use monotone interpolation to evaluate CDF at requested points. Clip
   # range of lambda to [0, L] where L is the maximum lambda for which the
   # GWPCR contains a point, and for extra safety clip output to [0, 1]
+  if (any(is.na(p.midpoints)))
+    return(rep(as.numeric(NA), length(lambda)))
   F <- splinefun(c(head(GWPCR$lambda, 1), GWPCR$lambda.midpoints, tail(GWPCR$lambda, 1)),
                  c(0, p.midpoints),
                  method='monoH.FC')
