@@ -30,6 +30,7 @@ rgwpcr <- function(samples, efficiency, molecules=1) {
     s <- s / (molecules * (1+efficiency)**cycles)
   }
 
+  # Return samples
   s
 }
 
@@ -83,22 +84,35 @@ dgwpcr <- function(lambda, efficiency, molecules=1) {
     d[p.m & p.e.v & !p.l.v] <- 0
   }
 
+  # Return result
   return(d)
 }
 
-pgwpcr <- function(lambda, efficiency, molecules=1) {
-  if (!is.numeric(lambda))
-    stop('lambda must be a numeric vector')
+dgwpcr.fun <- function(lambda, efficiency, molecules=1) {
+  if (!is.numeric(efficiency) || (length(efficiency) != 1) || (efficiency < 0) || (efficiency > 1))
+    stop('efficiency must be a numeric scalar within [0, 1]')
+  if (!is.numeric(molecules) || (length(molecules) != 1) || (molecules != floor(molecules)) || (molecules < 1))
+    stop('molecules must be a positive integral scalar')
+
+  # Create piece-wise monotone cubic spline interpolant
+  d <- dgwpcr(GWPCR$lambda, efficiency=efficiency, molecules=molecules)
+  splinefun(c(sum(head(GWPCR$lambda, 2) * c(3, -2)),
+              sum(head(GWPCR$lambda, 2) * c(2, -1)),
+              GWPCR$lambda,
+              sum(tail(GWPCR$lambda, 2) * c(-1, 2)),
+              sum(tail(GWPCR$lambda, 2) * c(-2, 3))),
+            c(0, 0, d, 0, 0), method='monoH.FC')
+}
+
+pgwpcr.fun <- function(efficiency, molecules=1) {
   if (!is.numeric(efficiency) || (length(efficiency) != 1) || (efficiency < 0) || (efficiency > 1))
     stop('efficiency must be a numeric scalar within [0, 1]')
   if (!is.numeric(molecules) || (length(molecules) != 1) || (molecules != floor(molecules)) || (molecules < 1))
     stop('molecules must be a positive integral scalar')
 
   # Handle corner-cases
-  if (efficiency == 0.0)
-    return(ifelse(lambda < 1.0, 0, 1))
-  if (efficiency == 1.0)
-    return(ifelse(lambda < 1.0, 0, 1))
+  if (efficiency %in% c(0.0, 1.0))
+    return(function(lambda) { ifelse(lambda < 1.0, 0, 1) })
 
   # Compute density at desired efficiency midpoints
   d <- dgwpcr(lambda=GWPCR$lambda, efficiency=efficiency, molecules=molecules)
@@ -106,18 +120,21 @@ pgwpcr <- function(lambda, efficiency, molecules=1) {
   p.midpoints <- cumsum(d * GWPCR$lambda.weights)
   p.midpoints <- p.midpoints / tail(p.midpoints, 1)
 
-  # Use monotone interpolation to evaluate CDF at requested points. Clip
-  # range of lambda to [0, L] where L is the maximum lambda for which the
-  # GWPCR contains a point, and for extra safety clip output to [0, 1]
+  # Use monotone interpolation to evaluate CDF at requested points.
   if (any(is.na(p.midpoints)))
     return(rep(as.numeric(NA), length(lambda)))
-  F <- splinefun(c(head(GWPCR$lambda, 1), GWPCR$lambda.midpoints, tail(GWPCR$lambda, 1)),
-                 c(0, p.midpoints),
-                 method='monoH.FC')
-  p <- rep(as.numeric(NA), length(lambda))
-  i.v <- (lambda >= GWPCR$lambda[1]) & (lambda <= GWPCR$lambda[length(GWPCR$lambda)])
-  p[i.v] <- pmin(pmax(0, F(lambda[i.v])), 1)
-  p[lambda < head(GWPCR$lambda, 1)] <- 0
-  p[lambda > tail(GWPCR$lambda, 1)] <- 1
-  p
+  splinefun(c(2*head(GWPCR$lambda, 1) - GWPCR$lambda.midpoints[1],
+              head(GWPCR$lambda, 1),
+              GWPCR$lambda.midpoints,
+              tail(GWPCR$lambda, 1),
+              2*tail(GWPCR$lambda.midpoints, 1) - tail(GWPCR$lambda, 1)),
+            c(0, 0, p.midpoints, 1),
+            method='monoH.FC')
+}
+
+pgwpcr <- function(lambda, efficiency, molecules=1){
+  if (!is.numeric(lambda))
+    stop('lambda must be a numeric vector')
+
+  pgwpcr.fun(efficiency=efficiency, molecules=molecules)(lambda)
 }
