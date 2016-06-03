@@ -1,1 +1,1 @@
-export(dgwpcr, pgwpcr, rgwpcr, gwpcr.molecules.precompute)
+export(dgwpcr, dgwpcr.fun, pgwpcr, pgwpcr.fun, rgwpcr, gwpcr.molecules.precompute)
