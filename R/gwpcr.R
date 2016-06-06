@@ -2,6 +2,31 @@
 #    PCR Distribution as produced by a simple Galton-Watson process
 # **********************************************************************
 
+handle.parameters <- function(parameters, by, expr) {
+  n <- 0
+  for(p in names(parameters)) {
+    if (!is.numeric(parameters[[p]]) && (length(parameters[[p]]) == 0))
+      stop(p, ' must be a non-empty numeric vector')
+    n <- max(n, length(parameters[[p]]))
+  }
+  for(p in names(parameters)) {
+    if (n %% length(parameters[[p]]) != 0)
+      warning("longest parameter length ", n, " s not a multiple of length of ", p)
+  }
+
+  # Create data.table containing the parameter values as columns
+  t <- suppressWarnings(do.call(data.table::data.table,
+                                c(list(`__result__` = as.numeric(NA)),
+                                  parameters)))
+  # Add result column by evaluting the provided expression within each by group
+  expr <- substitute(expr)
+  frame <- parent.frame()
+  t[, `__result__` := as.numeric(eval(expr, envir=.SD, enclos=frame)), by=by]
+
+  # Return result
+  return(t$`__result__`)
+}
+
 rgwpcr <- function(samples, efficiency, molecules=1) {
   if (!is.numeric(efficiency) || (length(efficiency) != 1))
     stop('efficiency must be a numeric scalar')
@@ -35,57 +60,39 @@ rgwpcr <- function(samples, efficiency, molecules=1) {
 }
 
 dgwpcr <- function(lambda, efficiency, molecules=1) {
-  if (!is.numeric(lambda))
-    stop('lambda must be a numeric vector')
-  if (!is.numeric(efficiency))
-    stop('efficiency must be a numeric vector')
-  if (!is.numeric(molecules) || any(floor(molecules) != molecules) || any(molecules < 1))
-    stop('molecules must be a positive integral vector')
-
-  # Bring efficiency, lambda and molecules to the same length.
-  n <- max(length(efficiency), length(lambda), length(molecules))
-  if ((n %% length(efficiency) != 0) || (n %% length(lambda) != 0) ||
-      (n %% length(molecules) != 0))
-    warning("longest object length is not a multiple of all shorter object lengths")
-  efficiency <- rep(efficiency, length.out=n)
-  lambda <- rep(lambda, length.out=n)
-  molecules <- rep(molecules, length.out=n)
-
-  # Group parameters by initial molecule count
-  d <- rep(as.numeric(NA), n)
-  for(m in unique(molecules)) {
+  # Process each number of molecules separately
+  handle.parameters(list(lambda=lambda, efficiency=efficiency, molecules=molecules), by="molecules", {
     # Moleculec ount must be >= 1 and integral
-    if ((m != as.integer(m)) || (m <= 0))
-      next
+    if (is.finite(molecules) && (molecules == floor(molecules)) && (molecules > 0)) {
+      # Ensure that we have a data matrix for the requested molecule count
+      if ((molecules > length(GWPCR$data)) || is.null(GWPCR$data[[molecules]]))
+        gwpcr.molecules.precompute(molecules=molecules)
 
-    # Ensure that we have a data matrix for the requested molecule count
-    if ((m > length(GWPCR$data)) || is.null(GWPCR$data[[m]]))
-      gwpcr.molecules.precompute(molecules=m)
+      # Determine molecule count filter (p.m), efficiency and lambda vectors
+      # (e, l), their validity filter (p.e.v, p.l.v) and overall filter (p.v)
+      e <- efficiency
+      l <- lambda
+      p.e.v <- (e >= head(GWPCR$efficiency, 1)) & (e <= tail(GWPCR$efficiency, 1))
+      p.l.v <- (l >= 0) & (l <= tail(GWPCR$lambda, 1))
+      p.v <- p.e.v & p.l.v
 
-    # Determine molecule count filter (p.m), efficiency and lambda vectors
-    # (e, l), their validity filter (p.e.v, p.l.v) and overall filter (p.v)
-    p.m <- (molecules == m)
-    e <- efficiency[p.m]
-    l <- lambda[p.m]
-    p.e.v <- (e >= head(GWPCR$efficiency, 1)) & (e <= tail(GWPCR$efficiency, 1))
-    p.l.v <- (l >= 0) & (l <= tail(GWPCR$lambda, 1))
-    p.v <- p.m & p.e.v & p.l.v
+      # Interpolate density at requested efficiencies and lambda values, but
+      # only were those values lie within the data matrix's range (i.e., no
+      # extrapolation!)
+      r <- akima::bicubic(x=GWPCR$efficiency, y=GWPCR$lambda, z=GWPCR$data[[molecules]],
+                          x0=efficiency[p.v],
+                          y0=lambda[p.v])
 
-    # Interpolate density at requested efficiencies and lambda values, but
-    # only were those values lie within the data matrix's range (i.e., no
-    # extrapolation!)
-    r <- akima::bicubic(x=GWPCR$efficiency, y=GWPCR$lambda, z=GWPCR$data[[m]],
-                        x0=efficiency[p.v],
-                        y0=lambda[p.v])
-
-    # Store interpolated densities are correct output positions
-    d[p.v] <- pmax(r$z, 0)
-    # And set density to zero if lambda is outside the data matrix's range.
-    d[p.m & p.e.v & !p.l.v] <- 0
-  }
-
-  # Return result
-  return(d)
+      # Store interpolated densities are correct output positions
+      d <- rep(as.numeric(NA), length(efficiency))
+      d[p.v] <- pmax(r$z, 0)
+      # And set density to zero if lambda is outside the data matrix's range.
+      d[p.e.v & !p.l.v] <- 0
+      # Result
+      d
+    } else
+      NA
+  })
 }
 
 dgwpcr.fun <- function(lambda, efficiency, molecules=1) {
@@ -133,8 +140,39 @@ pgwpcr.fun <- function(efficiency, molecules=1) {
 }
 
 pgwpcr <- function(lambda, efficiency, molecules=1){
-  if (!is.numeric(lambda))
-    stop('lambda must be a numeric vector')
+  # Process each combination of efficiency and molecule count separately
+  handle.parameters(list(lambda=lambda, efficiency=efficiency, molecules=molecules), by=c("efficiency", "molecules"), {
+    tryCatch({ pgwpcr.fun(efficiency=efficiency, molecules=molecules)(lambda) },
+             error=function(e) { rep(as.numeric(NA), length(lambda)) })
+  })
+}
 
-  pgwpcr.fun(efficiency=efficiency, molecules=molecules)(lambda)
+gwpcr.mixture <- function(x, FUN, efficiency, lambda0, molecules=1) {
+  if (!is.function(FUN))
+    stop("FUN must be a function with signature FUN(x, lambda)")
+
+  # Process each combination of efficiency, lambda0 and molecule count separately
+  handle.parameters(list(x=x, efficiency=efficiency, lambda0=lambda0, molecules=molecules), by=c("efficiency", "lambda0", "molecules"), {
+    # Get probabilities for lambda lying within the intervals defined by
+    # GWPCR$lambda.midpoints by multiplying the densities at the points lambda
+    # by the interval lengths. Then set the probability to zero whereever it
+    # is smaller than 1e-6 / <number of points> -- note that the the total
+    # probability of intervals ignored that way is <= 1e-6.
+    w <- dgwpcr(lambda=GWPCR$lambda, efficiency=efficiency, molecules=molecules) * GWPCR$lambda.weights
+    w[w <= (1e-6 / length(w))] <- 0.0
+    w <- w / sum(w)
+
+    # For each lambda, evaluate the function at X. Note that each function call
+    # can yield a vector -- we turn those into row vectors, and concatenate them
+    # vertically to produce matrix d whose rows correspond to different lambdas.
+    l <- GWPCR$lambda
+    d <- do.call(rbind, lapply(1:length(l), function(i) {
+      if (w[i] > 0.0) FUN(as.vector(x), lambda=l[i]*lambda0) else rep(0, length(x))
+    }))
+
+    # Average the function's results over the range of lambda values, weighting
+    # the value with the probability of the corresponding lambda interval from
+    # above (vector w).
+    apply(d, MARGIN=2, FUN=function(c) { sum(c * w) })
+  })
 }

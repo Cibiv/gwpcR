@@ -1,1 +1,2 @@
-export(dgwpcr, dgwpcr.fun, pgwpcr, pgwpcr.fun, rgwpcr, gwpcr.molecules.precompute)
+export(dgwpcr, dgwpcr.fun, pgwpcr, pgwpcr.fun, rgwpcr, gwpcr.mixture, gwpcr.molecules.precompute)
+importFrom(data.table, data.table, ':=')
