@@ -3,37 +3,41 @@ library(parallel)
 library(Rcpp)
 library(inline)
 
-CORES <- 40
+CORES <- 48
 
 # GWPCR precomputed data
 GWPCR <- new.env()
 GWPCR$samples <- 1e9
-GWPCR$until.molecules <- 1e6
-GWPCR$lambda.def <- list(list(to=2, by=0.01),
-                         list(to=10, by=0.1),
-                         list(to=50, by=1))
+GWPCR$until.molecules <- 1e7
+GWPCR$bandwidth.min <- 0.0025
+GWPCR$lambda.def <- list(list(to=0.95, by=0.01),
+                         list(to=1.2,  by=0.005),
+                         list(to=1.5,  by=0.01),
+                         list(to=2,    by=0.02),
+                         list(to=10,   by=0.1),
+                         list(to=50,   by=1))
 GWPCR$efficiency.def <- list(list(to=0.05, by=0.05),
-                             list(to=0.99, by=0.01))
+                             list(to=0.96, by=0.01),
+                             list(to=0.99, by=0.002))
+
+
+make.grid <- function(def) {
+  c(0, unlist(local({
+    p <- list(to=0);
+    lapply(def, function(e) {
+      r <- tail(seq(from=p$to, to=e$to, by=e$by), -1)
+      p <<- e
+      r
+    })
+  })))
+}
 
 # Generate efficiency grid from grid definition
-GWPCR$efficiency <- unlist(local({
-  p <- list(to=0);
-  lapply(GWPCR$efficiency.def, function(e) {
-    r <- tail(seq(from=p$to, to=e$to, by=e$by), -1)
-    p <<- e
-    r
-  })
-}))
+GWPCR$efficiency <- tail(make.grid(GWPCR$efficiency.def), -1)
+message('Evaluating density for ', length(GWPCR$efficiency), ' efficiencies')
 
-# Generate lambda grid from grid definition
-GWPCR$lambda <- c(0, unlist(local({
-  p <- list(to=0);
-  lapply(GWPCR$lambda.def, function(e) {
-    r <- tail(seq(from=p$to, to=e$to, by=e$by), -1)
-    p <<- e
-    r
-  })
-})))
+GWPCR$lambda <- make.grid(GWPCR$lambda.def)
+message('Evaluating density for ', length(GWPCR$lambda), ' values of lambda')
 
 # Generate lambda integration weights. We use the length an interval around
 # each knot, places such that the break points between intervals lie exactly
@@ -76,22 +80,30 @@ simulate.cycle <- cxxfunction(signature(samples_="numeric", efficiency_="numeric
 ', plugin='Rcpp', convention='.Call', language='C++')
 
 simulate <- function(efficiency, cycles, samples=1) {
+  # Produce one CORE-th of the total number of required samples
+  n.c <- ceiling(samples / CORES)
+
   r <- mclapply(1:CORES, FUN=function(c) {
-    # Produce one CORE-th of the total number of required samples
-    samples.c <- ceiling(samples / CORES)
     # Start with one copy
-    s.c <- rep(1, samples.c)
+    s.c <- rep(1, n.c)
     for(i in 1:cycles)
       # Simulate a cycle
       s.c <- simulate.cycle(s.c, efficiency)
     s.c
   }, mc.preschedule=TRUE, mc.cores=CORES, mc.silent=FALSE)
 
-  # Combine results from all cores, throw away unnecessary samples
-  s <- unlist(r)[1:samples]
+  # Combine results from all cores, throw away unnecessary samples, and scale
+  # to have expectation 1
+  f <- ((1+efficiency)**cycles)
+  s <- rep(as.numeric(NA), samples)
+  for(i in 1:length(r)) {
+    l <- n.c * (i - 1) + 1
+    u <- min(l + n.c, samples)
+    if (l <= u)
+      s[l:u] <- r[[i]][1:(u-l+1)] / f
+  }
 
-  # Scale to have expectation 1
-  s / ((1+efficiency)**cycles)
+  return(s)
 }
 
 # Setup
@@ -109,11 +121,25 @@ for(e in 1:length(GWPCR$efficiency)) {
   # Estimate density. density() only supported outputting the esitmated density on a uniform grid!
   L.MAX <- max(GWPCR$lambda)
   L.INC <- min(diff(GWPCR$lambda))
-  stopifnot(s >= 0)
-  stopifnot(s <= L.MAX)
+  if (any(s < 0) || any(s > L.MAX) || any(is.na(s))) {
+    cat('Indices containing negative samples:\n')
+    print(which(s < 0))
+    print(s[s < 0])
+    cat('Indices containing samples beyond ', L.MAX, ':\n')
+    print(which(s > L.MAX))
+    print(s[!is.na(s) & (s > L.MAX)])
+    cat('Indices containing infinite samples:\n')
+    print(which(s == Inf))
+    print(s[!is.na(s) & (s == Inf)])
+    cat('Indices containing NA samples:\n')
+    print(which(is.na(s)))
+    print(s[is.na(s)])
+    stop('invalid samples generated')
+  }
   message('Efficiency=', efficiency, ': Estimating bandwidth')
-  GWPCR$bandwidth[e] <- bw.nrd0(s)
-  message('Efficiency=', efficiency, ': Estimating density using bandwidth ', GWPCR$bandwidth[e])
+  bw <- bw.nrd0(s)
+  GWPCR$bandwidth[e] <- max(bw, GWPCR$bandwidth.min)
+  message('Efficiency=', efficiency, ': Estimating density using bandwidth ', GWPCR$bandwidth[e], ' (bw.nrd0 estimate was ', bw, ')')
   l <- density(s, kernel='gaussian', adjust=2, bw=GWPCR$bandwidth[e], from=0, to=L.MAX, n=L.MAX/L.INC)
 
   # Find indices into uniformly spaced density output that correspond to our non-uniform lambda grid
@@ -137,5 +163,5 @@ for(e in 1:length(GWPCR$efficiency)) {
 
   # Save file
   message('Efficiency=', efficiency, ': Saving')
-  save(GWPCR, file="data/sysdata.big.rda", compress='bzip2', compression_level=9)
+  save(GWPCR, file="data/sysdata.new.rda", compress='bzip2', compression_level=9)
 }
