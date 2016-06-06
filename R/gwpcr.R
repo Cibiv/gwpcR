@@ -18,10 +18,30 @@ handle.parameters <- function(parameters, by, expr) {
   t <- suppressWarnings(do.call(data.table::data.table,
                                 c(list(`__result__` = as.numeric(NA)),
                                   parameters)))
+
   # Add result column by evaluting the provided expression within each by group
-  expr <- substitute(expr)
-  frame <- parent.frame()
-  t[, `__result__` := as.numeric(eval(expr, envir=.SD, enclos=frame)), by=by]
+  # It's a bit tricky to get the expression to be evaluated with the correct
+  # stack of nested frames so that both parameters (i.e. columns of t) *and*
+  # arbitrary stuff defined in our caller's frame are accessible. First, we
+  # define a function r(...), which evaluates the given expression in an
+  # environment which contains its parameters, and as the enclosing env our
+  # parent's frame.
+  r <- function(...) {
+    eval(expr, envir=list(...), enclos=r.enclos)
+  }
+  # Then we make sure the function can access those things regardless of how
+  # its called, and that is contains the actual expression and enclosing env.
+  environment(r) <- list2env(list(expr=substitute(expr),
+                                  r.enclos=parent.frame()),
+                             parent=baseenv())
+  # We now create an expression e which reads
+  #   as.numeric(r(parameter1=parameter2, parameter2=parameter2, ...))
+  # for all the parameters in our parameter list.
+  p <- lapply(names(parameters), as.symbol)
+  names(p) <- names(parameters)
+  e <- bquote(as.numeric(.(e)), list(e=as.call(c(list(as.symbol('r')), p))))
+  # Finally, we evaluate the expression for each group, and store the result
+  t[, `__result__` := eval(e), by=by]
 
   # Return result
   return(t$`__result__`)
@@ -80,11 +100,10 @@ dgwpcr <- function(lambda, efficiency, molecules=1) {
       # only were those values lie within the data matrix's range (i.e., no
       # extrapolation!)
       r <- akima::bicubic(x=GWPCR$efficiency, y=GWPCR$lambda, z=GWPCR$data[[molecules]],
-                          x0=efficiency[p.v],
-                          y0=lambda[p.v])
+                          x0=e[p.v], y0=l[p.v])
 
       # Store interpolated densities are correct output positions
-      d <- rep(as.numeric(NA), length(efficiency))
+      d <- rep(as.numeric(NA), length(e))
       d[p.v] <- pmax(r$z, 0)
       # And set density to zero if lambda is outside the data matrix's range.
       d[p.e.v & !p.l.v] <- 0
