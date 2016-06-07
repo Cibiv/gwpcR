@@ -4,3 +4,4 @@ export(gwpcr.molecules.precompute,
        rgwpcrpois, dgwpcrpois, pgwpcrpois,
        gwpcrpois.mom, gwpcrpois.mle)
 importFrom(data.table, data.table, ':=')
+useDynLib(gwpcR, gwpcr_simulate)

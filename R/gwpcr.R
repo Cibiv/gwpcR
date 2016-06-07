@@ -3,8 +3,8 @@
 # **********************************************************************
 
 rgwpcr <- function(samples, efficiency, molecules=1) {
-  if (!is.numeric(efficiency) || (length(efficiency) != 1))
-    stop('efficiency must be a numeric scalar')
+  if (!is.numeric(efficiency) || (length(efficiency) != 1) || (efficiency < 0) || (efficiency > 1))
+    stop('efficiency must be a numeric scalar within [0,1]')
   if (!is.numeric(molecules) || (length(molecules) != 1) || (molecules != floor(molecules)) || (molecules < 1))
     stop('molecules must be a positive integral scalar')
 
@@ -14,15 +14,25 @@ rgwpcr <- function(samples, efficiency, molecules=1) {
   cycles <- ceiling(log(1e6 / molecules)/log(1+efficiency))
 
   # Start with initial copy number
-  s <- rep(molecules, samples)
-  if (efficiency < 1.0) {
+  s <- rep(as.double(molecules), samples)
+  if ((efficiency > 0) && (efficiency < 1.0)) {
     # Flip a coin for each molecule in each sample to determine whether
     # its copied. That can be done efficiently by sampling from a binomial
     # distribution for each sample.
-    for(i in 1:cycles) {
-      sp <- sapply(s, FUN=function(z) { rbinom(n=1, size=z, prob=efficiency) })
-      s <- s + sp
-    }
+    # Note: Since this requires looping over all samples, the code was
+    # translated to C. See gwpcr_simulate in simulate.c.
+    if (FALSE)
+      s <- .C(gwpcr_simulate,
+              nsamples=as.integer(length(s)),
+              samples=as.double(s),
+              efficiency=as.double(efficiency),
+              cycles=as.integer(cycles),
+              NAOK=TRUE)$samples
+    else
+      for(i in 1:cycles) {
+        sp <- sapply(s, FUN=function(z) { rbinom(n=1, size=z, prob=efficiency) })
+        s <- s + sp
+      }
 
     # Scale with expected number of molecules
     s <- s / (molecules * (1+efficiency)**cycles)
@@ -112,20 +122,27 @@ pgwpcr <- function(lambda, efficiency, molecules=1){
 }
 
 gwpcr.sd <- function(efficiency, molecules=1) {
+  if (!is.numeric(molecules) || (length(molecules) != 1) || (molecules != floor(molecules)) || (molecules < 1))
+    stop('molecules must be a positive integral scalar')
+
   if (!is.list(GWPCR$sd.fun))
     GWPCR$sd.fun <- list()
 
   if ((molecules > length(GWPCR$sd.fun)) || is.null(GWPCR$sd.fun[[molecules]])) {
+    # Ensure that we have a data matrix for the requested molecule count
+    if ((molecules > length(GWPCR$data)) || is.null(GWPCR$data[[molecules]]))
+      gwpcr.molecules.precompute(molecules=molecules)
+
     # Compute std. dev. of PCR distribution for pre-computed efficiencies
     s <- unlist(lapply(1:length(GWPCR$efficiency), FUN=function(i) {
       # Compute std.dev. of lambda for efficiency with index i
       sqrt(sum((GWPCR$lambda - 1.0)^2 * GWPCR$data[[molecules]][i,] * GWPCR$lambda.weights))
     }))
-    
+
     # Estimate y-intercept of curve, i.e. maximal sd, assuming that
     # the std.dev. is reasonably linear within [0, min(efficiency)]
     s0 <- s[1] - GWPCR$efficiency[1] * (s[2]-s[1]) / (GWPCR$efficiency[2]-GWPCR$efficiency[1])
-    
+
     # Create interpolating (monotone) spline.
     GWPCR$sd.fun[[molecules]] <-
       splinefun(c(0, GWPCR$efficiency, 1), c(s0, s, 0), method='monoH.FC')
@@ -139,18 +156,21 @@ gwpcr.sd <- function(efficiency, molecules=1) {
 }
 
 gwpcr.sd.inv <- function(sd, molecules=1) {
-  if (!is.list(GWPCR$sd.inv.fun))
-    GWPCR$sd.inv.fun <- list()
+  if (!is.numeric(molecules) || (length(molecules) != 1) || (molecules != floor(molecules)) || (molecules < 1))
+    stop('molecules must be a positive integral scalar')
+
+  if (!is.list(GWPCR$sd.fun))
+    GWPCR$sd.fun <- list()
 
   if ((molecules > length(GWPCR$sd.inv.fun)) || is.null(GWPCR$sd.inv.fun[[molecules]])) {
     y <- c(0, GWPCR$efficiency, 1)
-    x <- gwpcr.sd(y)
+    x <- gwpcr.sd(y, molecules=molecules)
     GWPCR$sd.inv.fun[[molecules]] <-
       splinefun(c(sum(head(x,2) * c(2, -1)), x, sum(tail(x,2) * c(-1, 2))),
                 c(y[1],                      y, tail(y,1)                ),
                 method='monoH.FC')
   }
-  
+
   # Evaluate spline at requested points
   # Evaluate spline at requested points
   r <- rep(as.numeric(NA), length(sd))
@@ -162,7 +182,7 @@ gwpcr.sd.inv <- function(sd, molecules=1) {
 gwpcr.mixture <- function(x, FUN, efficiency, lambda0, molecules=1) {
   if (!is.function(FUN))
     stop("FUN must be a function with signature FUN(x, lambda)")
-  
+
   # Process each combination of efficiency, lambda0 and molecule count separately
   handle.parameters(list(x=x, efficiency=efficiency, lambda0=lambda0, molecules=molecules), by=c("efficiency", "lambda0", "molecules"), {
     # Get probabilities for lambda lying within the intervals defined by
@@ -173,7 +193,7 @@ gwpcr.mixture <- function(x, FUN, efficiency, lambda0, molecules=1) {
     w <- dgwpcr(lambda=GWPCR$lambda, efficiency=efficiency, molecules=molecules) * GWPCR$lambda.weights
     w[w <= (1e-6 / length(w))] <- 0.0
     w <- w / sum(w)
-    
+
     # For each lambda, evaluate the function at X. Note that each function call
     # can yield a vector -- we turn those into row vectors, and concatenate them
     # vertically to produce matrix d whose rows correspond to different lambdas.
@@ -181,7 +201,7 @@ gwpcr.mixture <- function(x, FUN, efficiency, lambda0, molecules=1) {
     d <- do.call(rbind, lapply(1:length(l), function(i) {
       if (!is.na(w[i]) && (w[i] > 0.0)) FUN(as.vector(x), lambda=l[i]*lambda0) else rep(0, length(x))
     }))
-    
+
     # Average the function's results over the range of lambda values, weighting
     # the value with the probability of the corresponding lambda interval from
     # above (vector w).
