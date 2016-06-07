@@ -84,10 +84,6 @@ dgwpcr <- function(lambda, efficiency, molecules=1) {
   handle.parameters(list(lambda=lambda, efficiency=efficiency, molecules=molecules), by="molecules", {
     # Moleculec ount must be >= 1 and integral
     if (is.finite(molecules) && (molecules == floor(molecules)) && (molecules > 0)) {
-      # Ensure that we have a data matrix for the requested molecule count
-      if ((molecules > length(GWPCR$data)) || is.null(GWPCR$data[[molecules]]))
-        gwpcr.molecules.precompute(molecules=molecules)
-
       # Determine molecule count filter (p.m), efficiency and lambda vectors
       # (e, l), their validity filter (p.e.v, p.l.v) and overall filter (p.v)
       e <- efficiency
@@ -99,12 +95,8 @@ dgwpcr <- function(lambda, efficiency, molecules=1) {
       # Interpolate density at requested efficiencies and lambda values, but
       # only were those values lie within the data matrix's range (i.e., no
       # extrapolation!)
-      r <- akima::bicubic(x=GWPCR$efficiency, y=GWPCR$lambda, z=GWPCR$data[[molecules]],
-                          x0=e[p.v], y0=l[p.v])
-
-      # Store interpolated densities are correct output positions
       d <- rep(as.numeric(NA), length(e))
-      d[p.v] <- pmax(r$z, 0)
+      d[p.v] <- density.interpolate(x0=e[p.v], y0=l[p.v], m=molecules)
       # And set density to zero if lambda is outside the data matrix's range.
       d[p.e.v & !p.l.v] <- 0
       # Result
