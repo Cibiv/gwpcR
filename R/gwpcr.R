@@ -21,7 +21,7 @@ rgwpcr <- function(samples, efficiency, molecules=1) {
     # distribution for each sample.
     # Note: Since this requires looping over all samples, the code was
     # translated to C. See gwpcr_simulate in simulate.c.
-    if (FALSE)
+    if (TRUE)
       s <- .C(gwpcr_simulate,
               nsamples=as.integer(length(s)),
               samples=as.double(s),
