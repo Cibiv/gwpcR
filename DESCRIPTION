@@ -3,7 +3,8 @@ Type: Package
 Title: What the Package Does (Title Case)
 Version: 0.1
 Date: 2016-06-02
-Depends: R (>= 3.1.0), akima, stats, data.table
+Depends: R (>= 3.1.0)
+Imports: akima (>= 0.5-10), data.table (>= 1.8.11)
 Author: Who wrote it
 Maintainer: Who to complain to <yourfault@somewhere.net>
 Description: More about what it does (maybe more than one line)
