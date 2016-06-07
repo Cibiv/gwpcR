@@ -10,14 +10,17 @@ GWPCR <- new.env()
 GWPCR$samples <- 1e9
 GWPCR$until.molecules <- 1e7
 GWPCR$bandwidth.min <- 0.0025
-GWPCR$lambda.def <- list(list(to=0.95, by=0.01),
+GWPCR$lambda.def <- list(list(to=0.05, by=0.005),
+                         list(to=0.95, by=0.01),
                          list(to=1.2,  by=0.005),
                          list(to=1.5,  by=0.01),
                          list(to=2,    by=0.02),
                          list(to=10,   by=0.1),
-                         list(to=50,   by=1))
+                         list(to=15,   by=0.5),
+                         list(to=50,   by=5))
 GWPCR$efficiency.def <- list(list(to=0.05, by=0.05),
-                             list(to=0.96, by=0.01),
+                             list(to=0.90, by=0.01),
+                             list(to=0.94, by=0.005),
                              list(to=0.99, by=0.002))
 
 
