@@ -159,8 +159,8 @@ gwpcr.sd.inv <- function(sd, molecules=1) {
   if (!is.numeric(molecules) || (length(molecules) != 1) || (molecules != floor(molecules)) || (molecules < 1))
     stop('molecules must be a positive integral scalar')
 
-  if (!is.list(GWPCR$sd.fun))
-    GWPCR$sd.fun <- list()
+  if (!is.list(GWPCR$sd.inv.fun))
+    GWPCR$sd.inv.fun <- list()
 
   if ((molecules > length(GWPCR$sd.inv.fun)) || is.null(GWPCR$sd.inv.fun[[molecules]])) {
     y <- c(0, GWPCR$efficiency, 1)
