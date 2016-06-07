@@ -2,51 +2,6 @@
 #    PCR Distribution as produced by a simple Galton-Watson process
 # **********************************************************************
 
-handle.parameters <- function(parameters, by, expr) {
-  n <- 0
-  for(p in names(parameters)) {
-    if (!is.numeric(parameters[[p]]) && (length(parameters[[p]]) == 0))
-      stop(p, ' must be a non-empty numeric vector')
-    n <- max(n, length(parameters[[p]]))
-  }
-  for(p in names(parameters)) {
-    if (n %% length(parameters[[p]]) != 0)
-      warning("longest parameter length ", n, " s not a multiple of length of ", p)
-  }
-
-  # Create data.table containing the parameter values as columns
-  t <- suppressWarnings(do.call(data.table::data.table,
-                                c(list(`__result__` = as.numeric(NA)),
-                                  parameters)))
-
-  # Add result column by evaluting the provided expression within each by group
-  # It's a bit tricky to get the expression to be evaluated with the correct
-  # stack of nested frames so that both parameters (i.e. columns of t) *and*
-  # arbitrary stuff defined in our caller's frame are accessible. First, we
-  # define a function r(...), which evaluates the given expression in an
-  # environment which contains its parameters, and as the enclosing env our
-  # parent's frame.
-  r <- function(...) {
-    eval(expr, envir=list(...), enclos=r.enclos)
-  }
-  # Then we make sure the function can access those things regardless of how
-  # its called, and that is contains the actual expression and enclosing env.
-  environment(r) <- list2env(list(expr=substitute(expr),
-                                  r.enclos=parent.frame()),
-                             parent=baseenv())
-  # We now create an expression e which reads
-  #   as.numeric(r(parameter1=parameter2, parameter2=parameter2, ...))
-  # for all the parameters in our parameter list.
-  p <- lapply(names(parameters), as.symbol)
-  names(p) <- names(parameters)
-  e <- bquote(as.numeric(.(e)), list(e=as.call(c(list(as.symbol('r')), p))))
-  # Finally, we evaluate the expression for each group, and store the result
-  t[, `__result__` := eval(e), by=by]
-
-  # Return result
-  return(t$`__result__`)
-}
-
 rgwpcr <- function(samples, efficiency, molecules=1) {
   if (!is.numeric(efficiency) || (length(efficiency) != 1))
     stop('efficiency must be a numeric scalar')
@@ -60,8 +15,6 @@ rgwpcr <- function(samples, efficiency, molecules=1) {
 
   # Start with initial copy number
   s <- rep(molecules, samples)
-  if (efficiency == 1.0)
-
   if (efficiency < 1.0) {
     # Flip a coin for each molecule in each sample to determine whether
     # its copied. That can be done efficiently by sampling from a binomial
@@ -158,10 +111,58 @@ pgwpcr <- function(lambda, efficiency, molecules=1){
   })
 }
 
+gwpcr.sd <- function(efficiency, molecules=1) {
+  if (!is.list(GWPCR$sd.fun))
+    GWPCR$sd.fun <- list()
+
+  if ((molecules > length(GWPCR$sd.fun)) || is.null(GWPCR$sd.fun[[molecules]])) {
+    # Compute std. dev. of PCR distribution for pre-computed efficiencies
+    s <- unlist(lapply(1:length(GWPCR$efficiency), FUN=function(i) {
+      # Compute std.dev. of lambda for efficiency with index i
+      sqrt(sum((GWPCR$lambda - 1.0)^2 * GWPCR$data[[molecules]][i,] * GWPCR$lambda.weights))
+    }))
+    
+    # Estimate y-intercept of curve, i.e. maximal sd, assuming that
+    # the std.dev. is reasonably linear within [0, min(efficiency)]
+    s0 <- s[1] - GWPCR$efficiency[1] * (s[2]-s[1]) / (GWPCR$efficiency[2]-GWPCR$efficiency[1])
+    
+    # Create interpolating (monotone) spline.
+    GWPCR$sd.fun[[molecules]] <-
+      splinefun(c(0, GWPCR$efficiency, 1), c(s0, s, 0), method='monoH.FC')
+  }
+
+  # Evaluate spline at requested points
+  r <- rep(as.numeric(NA), length(efficiency))
+  e.v <- (efficiency >= 0) & (efficiency <= 1)
+  r[e.v] <- GWPCR$sd.fun[[molecules]](efficiency[e.v])
+  r
+}
+
+gwpcr.sd.inv <- function(sd, molecules=1) {
+  if (!is.list(GWPCR$sd.inv.fun))
+    GWPCR$sd.inv.fun <- list()
+
+  if ((molecules > length(GWPCR$sd.inv.fun)) || is.null(GWPCR$sd.inv.fun[[molecules]])) {
+    y <- c(0, GWPCR$efficiency, 1)
+    x <- gwpcr.sd(y)
+    GWPCR$sd.inv.fun[[molecules]] <-
+      splinefun(c(sum(head(x,2) * c(2, -1)), x, sum(tail(x,2) * c(-1, 2))),
+                c(y[1],                      y, tail(y,1)                ),
+                method='monoH.FC')
+  }
+  
+  # Evaluate spline at requested points
+  # Evaluate spline at requested points
+  r <- rep(as.numeric(NA), length(sd))
+  sd.v <- (sd >= 0)
+  r[sd.v] <- GWPCR$sd.inv.fun[[molecules]](sd[sd.v])
+  r
+}
+
 gwpcr.mixture <- function(x, FUN, efficiency, lambda0, molecules=1) {
   if (!is.function(FUN))
     stop("FUN must be a function with signature FUN(x, lambda)")
-
+  
   # Process each combination of efficiency, lambda0 and molecule count separately
   handle.parameters(list(x=x, efficiency=efficiency, lambda0=lambda0, molecules=molecules), by=c("efficiency", "lambda0", "molecules"), {
     # Get probabilities for lambda lying within the intervals defined by
@@ -172,7 +173,7 @@ gwpcr.mixture <- function(x, FUN, efficiency, lambda0, molecules=1) {
     w <- dgwpcr(lambda=GWPCR$lambda, efficiency=efficiency, molecules=molecules) * GWPCR$lambda.weights
     w[w <= (1e-6 / length(w))] <- 0.0
     w <- w / sum(w)
-
+    
     # For each lambda, evaluate the function at X. Note that each function call
     # can yield a vector -- we turn those into row vectors, and concatenate them
     # vertically to produce matrix d whose rows correspond to different lambdas.
@@ -180,50 +181,10 @@ gwpcr.mixture <- function(x, FUN, efficiency, lambda0, molecules=1) {
     d <- do.call(rbind, lapply(1:length(l), function(i) {
       if (!is.na(w[i]) && (w[i] > 0.0)) FUN(as.vector(x), lambda=l[i]*lambda0) else rep(0, length(x))
     }))
-
+    
     # Average the function's results over the range of lambda values, weighting
     # the value with the probability of the corresponding lambda interval from
     # above (vector w).
     apply(d, MARGIN=2, FUN=function(c) { sum(c * w) })
   })
-}
-
-dgwpcrpois <- function(c, efficiency, lambda0, threshold=0, molecules=1) {
-  handle.parameters(list(c=c, efficiency=efficiency, lambda0=lambda0,
-                         threshold=threshold, molecules=molecules),
-                    by=c('efficiency', 'lambda0', 'threshold', 'molecules'), {
-                      # Compute P[X < Th]
-                      p <- if (threshold >= 1)
-                        gwpcr.mixture(threshold-1, stats::ppois, efficiency=efficiency,
-                                      lambda0=lambda0, molecules=molecules)
-                      else
-                        0
-                      # Compute probabilities for those X which are >= TH
-                      c.v <- (c >= threshold)
-                      d <- rep(0, length(c))
-                      d[c.v] <- gwpcr.mixture(c[c.v], stats::dpois, efficiency=efficiency,
-                                              lambda0=lambda0, molecules=molecules)
-                      # And compute P(X = c | X >= Th)
-                      d / (1.0 - p)
-                    })
-}
-
-pgwpcrpois <- function(c, efficiency, lambda0, threshold=0, molecules=1) {
-  handle.parameters(list(c=c, efficiency=efficiency, lambda0=lambda0,
-                         threshold=threshold, molecules=molecules),
-                    by=c('efficiency', 'lambda0', 'threshold', 'molecules'), {
-                      # Compute P[X < Th]
-                      p <- if (threshold >= 1)
-                        gwpcr.mixture(threshold-1, stats::ppois, efficiency=efficiency,
-                                      lambda0=lambda0, molecules=molecules)
-                      else
-                        0
-                      # Compute probabilities for those X which are >= TH
-                      c.v <- (c >= threshold)
-                      d <- rep(0, length(c))
-                      d[c.v] <- gwpcr.mixture(c[c.v], stats::ppois, efficiency=efficiency,
-                                              lambda0=lambda0, molecules=molecules)
-                      # And compute P(X = c | X >= Th)
-                      d / (1.0 - p)
-                    })
 }
