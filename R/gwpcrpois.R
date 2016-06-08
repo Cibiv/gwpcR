@@ -1,6 +1,6 @@
 # **********************************************************************
 # Mixture of Poisson Distributions with Parameter l * l0, where
-# l is distributed according to the Galton-Watson PCR Distribution 
+# l is distributed according to the Galton-Watson PCR Distribution
 # **********************************************************************
 
 rgwpcrpois <- function(samples, efficiency, lambda0, threshold=1, molecules=1) {
@@ -18,13 +18,20 @@ rgwpcrpois <- function(samples, efficiency, lambda0, threshold=1, molecules=1) {
     # Compute number of samples generate, taking the average acception rate p.th
     # into account, as well as the fluctuations around that rate, which are binomial.
     k <- ceiling((samples - n) / p.th)
-    k <- k + 2*sqrt(k*p.th*(1-p.th))
+    k <- ceiling(k + 3*sqrt(k*p.th*(1-p.th)))
     # Generate lambda values for samples by sampling from the PCR distribution
-    s.l <- rgwpcr(samples=k + 2*sqrt(k), efficiency=efficiency, molecules=molecules)
-    # Generate counts by sampling from a (different) poissin distribution per sample
-    s.c <- sapply(s.l, function(l) { stats::rpois(n=1, lambda=l*lambda0) })
+    s.c <- .C(gwpcrpois_simulate,
+              nsamples=as.integer(k),
+              samples=double(k),
+              efficiency=as.double(efficiency),
+              lambda0=as.double(lambda0),
+              molecules=as.double(molecules),
+              cycles=as.integer(ceiling(log(1e6 / molecules)/log(1+efficiency))),
+              NAOK=TRUE)$samples
     # Remove samples below threshold, and determine how many to use
     s.c <- s.c[s.c >= threshold]
+    if (length(s.c) == 0)
+      next
     c.n <- min(length(s.c), samples - n)
     # Append to output
     stopifnot(c.n > 0)

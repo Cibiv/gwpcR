@@ -14,7 +14,6 @@ rgwpcr <- function(samples, efficiency, molecules=1) {
   cycles <- ceiling(log(1e6 / molecules)/log(1+efficiency))
 
   # Start with initial copy number
-  s <- rep(as.double(molecules), samples)
   if ((efficiency > 0) && (efficiency < 1.0)) {
     # Flip a coin for each molecule in each sample to determine whether
     # its copied. That can be done efficiently by sampling from a binomial
@@ -22,24 +21,24 @@ rgwpcr <- function(samples, efficiency, molecules=1) {
     # Note: Since this requires looping over all samples, the code was
     # translated to C. See gwpcr_simulate in simulate.c.
     if (TRUE)
-      s <- .C(gwpcr_simulate,
-              nsamples=as.integer(length(s)),
-              samples=as.double(s),
-              efficiency=as.double(efficiency),
-              cycles=as.integer(cycles),
-              NAOK=TRUE)$samples
-    else
+      .C(gwpcr_simulate,
+         nsamples=as.integer(length(s)),
+         samples=double(samples),
+         efficiency=as.double(efficiency),
+         molecules=as.double(molecules),
+         cycles=as.integer(cycles),
+         NAOK=TRUE)$samples
+    else {
+      s <- rep(1.0, samples)
       for(i in 1:cycles) {
         sp <- sapply(s, FUN=function(z) { rbinom(n=1, size=z, prob=efficiency) })
         s <- s + sp
       }
-
-    # Scale with expected number of molecules
-    s <- s / (molecules * (1+efficiency)**cycles)
+      s / (molecules * (1+efficiency)**cycles)
+    }
   }
-
-  # Return samples
-  s
+  else
+    rep(1.0, samples)
 }
 
 dgwpcr <- function(lambda, efficiency, molecules=1) {
