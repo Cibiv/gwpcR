@@ -1,4 +1,4 @@
-gwpcrpois.mom <- function(c, molecules=1) {
+gwpcrpois.mom <- function(c, threshold=1, molecules=1) {
   # A random variable C distributed according to the PCR-Poisson mixture
   # with parameters E (efficiency) and lambda0 has mean
   #   E( C | E, lambda0 ) = lambda0,
@@ -8,19 +8,73 @@ gwpcrpois.mom <- function(c, molecules=1) {
   # A method-of-moments estimator for the parameters of C is thus to set
   #   lambda0 = Avg(C),
   # and to set
-  #   v = ( Var(C) - lambda0 ) / lambda0^2
+  #   v' = ( Var(C) - lambda0 ) / lambda0^2
   # and find E such that
-  #   V( L | E ) = v,
+  #   V( L | E ) = v',
   # which is what gwpcr.sd.inv does using a pre-computed piecewise polynomial
   # approximation.
   #
-  # NOTE: Setting a threshold, i.e. using a conditional version of the
-  # Poisson distribution is not supported yet. M-o-M estimates will thus
-  # be skewed unless the probability of non-observation is negigible.
-  lambda0 <- mean(c)
-  efficiency <- gwpcr.sd.inv(sqrt(max((var(c) - lambda0) / ( lambda0^2 ), 0)),
+  # XXX: In principle, the relationship between variance and efficiency is
+  # analytically tractable, so gwpcr.sd.inv could be replaced by the exact
+  # formula.
+  c.mean <- mean(c)
+  c.var <- var(c)
+  lambda0 <- c.mean
+  efficiency <- gwpcr.sd.inv(sqrt(max((c.var - lambda0) / ( lambda0^2 ), 0)),
                              molecules=molecules)
-  return(list(lambda0=lambda0, efficiency=efficiency, molecules=molecules))
+
+  # If the data is censored, i.e. if only counts >= threshold > 0 are
+  # observed, the sample mean will over-estimate lambda0, and the sample
+  # variance also won't reflect the uncensored distribution's variance.
+  #
+  # Let c_m be the expected sampling mean, i.e.
+  #   c_m = E ( C | C >= TH, E, lambda0 ),
+  # and v_m the expected sampling variance, i.e.
+  #   v_m = V ( C | C >= TH, E, lambda0 ),
+  # and set:
+  #   m_0 = Sum c   * P( C=c | E, lambda0 ) for 0 <= c < TH,
+  #   v_0 = Sum c^2 * P( C=c | E, lambda0 ) for 0 <= c < TH,
+  #   p_0 =       Sum P( C=c | E, lambda0 ) for 0 <= c < TH,
+  # then the following relationship holds:
+  #   (A)  E( C | E, lambda0 ) = lambda_0 = m_0 + (1 - p_0) * c_m,
+  #   (B)  V( C | E, lambda0 ) = v = v_1 + (1 - p_0) * ( v_m + c_m^2 ) - lambda_0^2.
+  # Together with the relationship between v and E from above, i.e.
+  #   (C)  V( L | E ) = ( v - lambda0 ) / lambda0^2
+  # this yields a system of equations in E and lambda with parameters
+  # c_m, v_m and TH. The code below solves this iteratively by starting with
+  # the estimates for lambda0 and E for TH=0 from abovel. (A) is then used
+  # to update lambda0, (B) to compute a new v, and (C) to find the updated (E).
+  #
+  # Experiments showed that it is beneficial to use the updated lambda0 when
+  # evaluting (B) and (C). However, for performance reasons, m_0, v_0 and p_0
+  # are not re-evaluated immediately after updating lambda0, but instead the
+  # old values to used to update the efficiency. The values ARE then re-computed
+  # during the next round, however,
+  if (threshold > 0) {
+    converged <- FALSE
+    rel.tol <- 1e-3
+    while (!converged) {
+      x <- seq(from=0, to=threshold-1, by=1)
+      d <- dgwpcrpois(x, efficiency=efficiency, lambda0=lambda0,
+                      threshold=0, molecules=molecules)
+      p <- (1 - sum(d))
+      lambda0.p <- sum(x * d)   + p * c.mean
+      v         <- sum(x^2 * d) + p * (c.var + c.mean^2) - lambda0.p^2
+      efficiency.p <- gwpcr.sd.inv(sqrt(max((v - lambda0.p) / ( lambda0.p^2 ), 0)),
+                                   molecules=molecules)
+
+      if ((abs(lambda0 - lambda0.p) / lambda0 <= rel.tol) &&
+          (abs(efficiency - efficiency.p) / efficiency <= rel.tol))
+        converged <- TRUE
+
+      lambda0 <- lambda0.p
+      efficiency <- efficiency.p
+    }
+  }
+
+  # Return results
+  return(list(lambda0=lambda0, efficiency=efficiency,
+              threshold=threshold, molecules=molecules))
 }
 
 gwpcrpois.mle <- function(c, threshold=1, molecules=1) {
