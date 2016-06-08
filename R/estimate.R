@@ -1,3 +1,4 @@
+#' @export
 gwpcrpois.mom <- function(c, threshold=1, molecules=1) {
   # A random variable C distributed according to the PCR-Poisson mixture
   # with parameters E (efficiency) and lambda0 has mean
@@ -77,6 +78,7 @@ gwpcrpois.mom <- function(c, threshold=1, molecules=1) {
               threshold=threshold, molecules=molecules))
 }
 
+#' @export
 gwpcrpois.mle <- function(c, threshold=1, molecules=1) {
   # Since evaluating the PCR-Poisson mixture is slow, we optimize by evaluating it only
   # once for each unique observed count, and multiplying the log-likelihood with the

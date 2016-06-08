@@ -1,3 +1,4 @@
+#' @importFrom data.table data.table :=
 handle.parameters <- function(parameters, by, expr) {
   n <- 0
   for(p in names(parameters)) {
@@ -9,12 +10,12 @@ handle.parameters <- function(parameters, by, expr) {
     if (n %% length(parameters[[p]]) != 0)
       warning("longest parameter length ", n, " s not a multiple of length of ", p)
   }
-  
+
   # Create data.table containing the parameter values as columns
   t <- suppressWarnings(do.call(data.table::data.table,
                                 c(list(`__result__` = as.numeric(NA)),
                                   parameters)))
-  
+
   # Add result column by evaluting the provided expression within each by group
   # It's a bit tricky to get the expression to be evaluated with the correct
   # stack of nested frames so that both parameters (i.e. columns of t) *and*
@@ -38,7 +39,7 @@ handle.parameters <- function(parameters, by, expr) {
   e <- bquote(as.numeric(.(e)), list(e=as.call(c(list(as.symbol('r')), p))))
   # Finally, we evaluate the expression for each group, and store the result
   t[, `__result__` := eval(e), by=by]
-  
+
   # Return result
   return(t$`__result__`)
 }

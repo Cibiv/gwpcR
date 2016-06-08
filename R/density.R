@@ -28,7 +28,7 @@ density.interpolate <- function(x0, y0, m) {
     #stopifnot(is.double(GWPCR$data[[m]]))
     #stopifnot(length(GWPCR$efficiency) == nrow(GWPCR$data[[m]]))
     #stopifnot(length(GWPCR$lambda) == ncol(GWPCR$data[[m]]))
-    r <- .Fortran("rgbi3p",
+    r <- .Fortran('rgbi3p',
                   md=as.integer(1),
                   nxd=length(GWPCR$efficiency), nyd=length(GWPCR$lambda),
                   xd=GWPCR$efficiency, yd=GWPCR$lambda, zd=GWPCR$data[[m]],
@@ -52,7 +52,7 @@ density.interpolate <- function(x0, y0, m) {
   stopifnot(length(x0) == length(y0))
   if (length(x0) == 0)
     return(double(0))
-  r <- .Fortran("rgbi3p",
+  r <- .Fortran('rgbi3p',
                 md=as.integer(2),
                 nxd=length(GWPCR$efficiency), nyd=length(GWPCR$lambda),
                 xd=GWPCR$efficiency, yd=GWPCR$lambda, zd=GWPCR$data[[m]],

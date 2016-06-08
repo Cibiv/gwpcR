@@ -1,8 +1,22 @@
-# **********************************************************************
-#    PCR Distribution as produced by a simple Galton-Watson process
-# **********************************************************************
+#' @title PCR Product Distribution induced by a Binomial Galton-Watson Process
+#'
+#' @description Test
+#'
+#' @param n
+#'
+#' @param lambda
+#'
+#' @param efficiency
+#'
+#' @param molecules
+#'
+#' @name gwpcr
+NULL
 
-rgwpcr <- function(samples, efficiency, molecules=1) {
+#' @rdname gwpcr
+#' @useDynLib gwpcR gwpcr_simulate
+#' @export
+rgwpcr <- function(n, efficiency, molecules=1) {
   if (!is.numeric(efficiency) || (length(efficiency) != 1) || (efficiency < 0) || (efficiency > 1))
     stop('efficiency must be a numeric scalar within [0,1]')
   if (!is.numeric(molecules) || (length(molecules) != 1) || (molecules != floor(molecules)) || (molecules < 1))
@@ -22,14 +36,14 @@ rgwpcr <- function(samples, efficiency, molecules=1) {
     # translated to C. See gwpcr_simulate in simulate.c.
     if (TRUE)
       .C(gwpcr_simulate,
-         nsamples=as.integer(length(s)),
-         samples=double(samples),
+         nsamples=as.integer(n),
+         samples=double(n),
          efficiency=as.double(efficiency),
          molecules=as.double(molecules),
          cycles=as.integer(cycles),
          NAOK=TRUE)$samples
     else {
-      s <- rep(1.0, samples)
+      s <- rep(1.0, n)
       for(i in 1:cycles) {
         sp <- sapply(s, FUN=function(z) { rbinom(n=1, size=z, prob=efficiency) })
         s <- s + sp
@@ -38,9 +52,11 @@ rgwpcr <- function(samples, efficiency, molecules=1) {
     }
   }
   else
-    rep(1.0, samples)
+    rep(1.0, n)
 }
 
+#' @rdname gwpcr
+#' @export
 dgwpcr <- function(lambda, efficiency, molecules=1) {
   # Process each number of molecules separately
   handle.parameters(list(lambda=lambda, efficiency=efficiency, molecules=molecules), by="molecules", {
@@ -68,7 +84,9 @@ dgwpcr <- function(lambda, efficiency, molecules=1) {
   })
 }
 
-dgwpcr.fun <- function(lambda, efficiency, molecules=1) {
+#' @rdname gwpcr
+#' @export
+dgwpcr.fun <- function(efficiency, molecules=1) {
   if (!is.numeric(efficiency) || (length(efficiency) != 1) || (efficiency < 0) || (efficiency > 1))
     stop('efficiency must be a numeric scalar within [0, 1]')
   if (!is.numeric(molecules) || (length(molecules) != 1) || (molecules != floor(molecules)) || (molecules < 1))
@@ -84,6 +102,8 @@ dgwpcr.fun <- function(lambda, efficiency, molecules=1) {
             c(0, 0, d, 0, 0), method='monoH.FC')
 }
 
+#' @rdname gwpcr
+#' @export
 pgwpcr.fun <- function(efficiency, molecules=1) {
   if (!is.numeric(efficiency) || (length(efficiency) != 1) || (efficiency < 0) || (efficiency > 1))
     stop('efficiency must be a numeric scalar within [0, 1]')
@@ -112,6 +132,8 @@ pgwpcr.fun <- function(efficiency, molecules=1) {
             method='monoH.FC')
 }
 
+#' @rdname gwpcr
+#' @export
 pgwpcr <- function(lambda, efficiency, molecules=1){
   # Process each combination of efficiency and molecule count separately
   handle.parameters(list(lambda=lambda, efficiency=efficiency, molecules=molecules), by=c("efficiency", "molecules"), {
@@ -120,6 +142,8 @@ pgwpcr <- function(lambda, efficiency, molecules=1){
   })
 }
 
+#' @title  PCR Product Distribution Standard Deviation
+#' @export
 gwpcr.sd <- function(efficiency, molecules=1) {
   if (!is.numeric(molecules) || (length(molecules) != 1) || (molecules != floor(molecules)) || (molecules < 1))
     stop('molecules must be a positive integral scalar')
@@ -154,6 +178,8 @@ gwpcr.sd <- function(efficiency, molecules=1) {
   r
 }
 
+#' @rdname gwpcr.sd
+#' @export
 gwpcr.sd.inv <- function(sd, molecules=1) {
   if (!is.numeric(molecules) || (length(molecules) != 1) || (molecules != floor(molecules)) || (molecules < 1))
     stop('molecules must be a positive integral scalar')
@@ -178,6 +204,7 @@ gwpcr.sd.inv <- function(sd, molecules=1) {
   r
 }
 
+#' @export
 gwpcr.mixture <- function(x, FUN, efficiency, lambda0, molecules=1) {
   if (!is.function(FUN))
     stop("FUN must be a function with signature FUN(x, lambda)")

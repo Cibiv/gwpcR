@@ -1,8 +1,23 @@
-# **********************************************************************
-# Mixture of Poisson Distributions with Parameter l * l0, where
-# l is distributed according to the Galton-Watson PCR Distribution
-# **********************************************************************
+#' @title Poissonian Sampling Distribution of the PCR Product Distribution
+#'
+#' @description Test
+#'
+#' @param n
+#'
+#' @param lambda
+#'
+#' @param efficiency
+#'
+#' @param molecules
+#'
+#' @name gwpcrpois
+#'
+#' @seealso gwpcr
+NULL
 
+#' @rdname gwpcrpois
+#' @useDynLib gwpcR gwpcrpois_simulate
+#' @export
 rgwpcrpois <- function(samples, efficiency, lambda0, threshold=1, molecules=1) {
   # Determine probability of a sample being accepted (i.e., of being >= threshold)
   p.th <- if (threshold > 0)
@@ -42,6 +57,8 @@ rgwpcrpois <- function(samples, efficiency, lambda0, threshold=1, molecules=1) {
   r
 }
 
+#' @rdname gwpcrpois
+#' @export
 dgwpcrpois <- function(c, efficiency, lambda0, threshold=1, molecules=1, clamp.efficiency=TRUE) {
   if (clamp.efficiency)
     efficiency <- pmin(pmax(GWPCR$efficiency[1], efficiency), tail(GWPCR$efficiency,1))
@@ -65,6 +82,8 @@ dgwpcrpois <- function(c, efficiency, lambda0, threshold=1, molecules=1, clamp.e
                     })
 }
 
+#' @rdname gwpcrpois
+#' @export
 pgwpcrpois <- function(c, efficiency, lambda0, threshold=1, molecules=1, clamp.efficiency=TRUE) {
   if (clamp.efficiency)
     efficiency <- pmin(pmax(GWPCR$efficiency[1], efficiency), tail(GWPCR$efficiency,1))
