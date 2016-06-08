@@ -33,12 +33,12 @@ gwpcrpois.mle <- function(c, threshold=1, molecules=1) {
   # search with clamp.efficiency set to FALSE, we must take care to clamp it to the
   # range of efficiencies found in GWPCR here
   mom <- gwpcrpois.mom(c, molecules=molecules)
-  mom$efficiency <- 0.5 #pmin(pmax(GWPCR$efficiency[1], mom$efficiency), tail(GWPCR$efficiency,1))
+  mom$efficiency <- pmin(pmax(GWPCR$efficiency[1], mom$efficiency), tail(GWPCR$efficiency,1))
 
   # Optimize likelihood
-  r <- optim(par=c(efficiency=mom$efficiency, lambda0=mom$lambda0),
+  r <- optim(par=c(efficiency.inv=1/mom$efficiency, lambda0=mom$lambda0),
              fn=function(p) {
-               e <- p['efficiency']
+               e <- 1 / p['efficiency.inv']
                l <- p['lambda0']
                # If parameters are valid, compute log-likelihood, otherwise
                # return NA.
@@ -49,10 +49,10 @@ gwpcrpois.mle <- function(c, threshold=1, molecules=1) {
                else
                  as.numeric(NA)
              }, method="Nelder-Mead",
-             control=list(fnscale=-1, parscale=c(efficiency=1/mom$efficiency, lambda0=1/mom$lambda0)))
+             control=list(fnscale=-1, parscale=c(efficiency.inv=mom$efficiency, lambda0=1/mom$lambda0)))
 
   # Return result
-  list(efficiency=as.vector(r$par['efficiency']),
+  list(efficiency=as.vector(1/r$par['efficiency.inv']),
        lambda0=as.vector(r$par['lambda0']),
        threshold=threshold,
        molecules=molecules)
