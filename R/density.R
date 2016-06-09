@@ -23,6 +23,22 @@ density.interpolate <- function(x0, y0, m) {
   if (is.null(GWPCR$data.akima.wk))
     GWPCR$data.akima.wk <- list()
   if ((m > length(GWPCR$data.akima.wk)) || is.null(GWPCR$data.akima.wk[[m]])) {
+    # For each distribution in GWPCR$data (i.e. for each efficiency), we pick
+    # a set of intervals (start with the ones where the density is smallest),
+    # which all combined have probability less than one in a million, and set
+    # the probability to zero there. This should help the optimizations in
+    # gwpcr.mixture to be more effective.
+    #
+    # XXX: This could be done during pre-computing the data matrix instead of here
+    for(e in 1:nrow(GWPCR$data[[m]])) {
+      d <- GWPCR$data[[m]][e,]
+      p <- d * GWPCR$lambda.weights
+      pc <- c(0, cumsum(sort(p)))
+      t <- pc[which.max(pc >= 1e-6)-1]
+      d[p <= t] <- 0
+      GWPCR$data[[m]][e,] <- d
+    }
+
     # These checks cannot fail, unless the data in sysdata.rda is tampared with
     #stopifnot(is.double(GWPCR$efficiency) && is.double(GWPCR$lambda))
     #stopifnot(is.double(GWPCR$data[[m]]))
