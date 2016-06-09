@@ -9,6 +9,7 @@ CORES <- 48
 GWPCR <- new.env()
 GWPCR$samples <- 1e9
 GWPCR$until.molecules <- 1e7
+GWPCR$density.threshold <- 1e-6
 GWPCR$bandwidth.min <- 0.0025
 GWPCR$lambda.def <- list(list(to=0.05, by=0.005),
                          list(to=0.95, by=0.01),
@@ -66,7 +67,7 @@ GWPCR$bandwidth <- rep(as.numeric(NA), length(GWPCR$efficiency))
 simulate.cycle <- cxxfunction(signature(samples_="numeric", efficiency_="numeric"), body='
   using namespace Rcpp;
   NumericVector result;
-  RNGScope rngScope;  
+  RNGScope rngScope;
 
   // Arguments, and create result vector
   const NumericVector samples = as<NumericVector>(samples_);
@@ -158,8 +159,17 @@ for(e in 1:length(GWPCR$efficiency)) {
   stopifnot(abs(l$x[i] - GWPCR$lambda) <= 1e-12)
   d <- c(0, l$y[tail(i,-1)])
 
+  # Pick a set of intervals (start with the ones where the density is smallest),
+  # which all combined have probability less than one in a million, and set
+  # the probability to zero there.
+  p <- d * GWPCR$lambda.weights
+  pc <- c(0, cumsum(sort(p)))
+  z <- (p <= pc[which.max(pc >= GWPCR$density.threshold)-1])
+  p[z] <- 0
+  d[z] <- 0
+
   # Normalize so that riemann sum is exactly one
-  d <- d / sum(d * GWPCR$lambda.weights)
+  d <- d / sum(p)
 
   # Store density
   GWPCR$data[[1]][e,] <- d
