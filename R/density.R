@@ -102,7 +102,7 @@ gwpcr.molecules.precompute <- function(molecules) {
   #       = (m2 / m) [ (m1 / m2) X_m1 + X_m2 ].
   # We thus need to re-scale X_m1 in x-direction to have mean m1 / m2 < 1,
   # then X_m2, and re-scale the sum from mean (m1 / m2 + 1) back to 1.
-  l1 <- if (m1 != m2) l * (m2 / m1) else l
+  l1 <- if (m1 != m2) GWPCR$lambda * (m1 / m2) else GWPCR$lambda
   lp <- l * (m2 / molecules)
 
   # Get data matrices for the both summands.
@@ -122,8 +122,8 @@ gwpcr.molecules.precompute <- function(molecules) {
     # Apply x-asis scaling to distribution X_m1 for m1 molecules as explained
     # above, and evaluate on the uniform grid l. Beyond the original domain
     # of X_m1's density don't extrapolate with splinefun(), but instead set zero!
-    f1 <- fft(c(pmax(splinefun(GWPCR$lambda, data1[e,])(l1[l1 <= l.max]), 0),
-                rep(0, sum(l1 > l.max))))
+    f1 <- fft(c(pmax(splinefun(l1, data1[e,])(l[l <= l.max]), 0),
+                rep(0, sum(l > l.max))))
 
     # Evaluatedistribution X_m2 for m2 molecules on the uniform grid l. Beyond
     # the original domain of X_m1's density don't extrapolate with splinefun(),
