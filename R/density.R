@@ -75,37 +75,69 @@ gwpcr.molecules.precompute <- function(molecules) {
   if (!is.numeric(molecules) || (length(molecules) != 1) || (molecules != floor(molecules)) || (molecules < 1))
     stop('molecules must be a positive integral scalar')
 
-  # To compute a data matrix for M molecules, we need to convolve each
-  # row of the data matrx for 1 molecules M times with itself. This can
-  # be done efficiently by fourier transforming, taking the M-th power,
-  # and reverse transforming. Since we use the discrete transform, we need
-  # to be carefully, however, to first pad the vector to a sufficient length
-  # to be able to hold the resulting distribution, which (as a sum of M
-  # i.i.d. random variables) has a M-fold larger domain than the original.
-  # The grid on which the original density is defined also needs to be uniform,
-  # which the raw data row violate (GWPCR$lambda is non-uniform!). After
-  # computing the convolution, we transform back to the original non-uniform
-  # grid.
-  data <- matrix(NA, nrow=nrow(GWPCR$data[[1]]), ncol=ncol(GWPCR$data[[1]]))
+  # The distribution for <molecules> initial molecules is computed by
+  # convolving the densities for m1 and m_2 initial molecules, where m = m1+m2.
+  m1 <- floor(molecules / 2)
+  m2 <- ceiling(molecules / 2)
+  if ((m1 > length(GWPCR$data)) || is.null(GWPCR$data[[m1]]))
+    gwpcr.molecules.precompute(m1)
+  if ((m2 > length(GWPCR$data)) || is.null(GWPCR$data[[m2]]))
+    gwpcr.molecules.precompute(m2)
+  message('gwpcr.molecules.precompute: Computing PCR distribution for ',
+          molecules, ' initial molecules from those for ', m1, ' and ', m2)
+
   # Determine smallest grid size used within rows of the data matrix, and
   # the largest x-value for which data is provided. Then synthesize uniform
-  # grid l, which is what will be used for the convolution. Note that is
-  # extend up to M times the original largest x-value!
+  # grid l, which is what will be used for the convolution. Note that since
+  # it needs to hold the *unscaled* sum, it must extend to twice l.max!
   w <- min(diff(GWPCR$lambda))
   l.max <- max(GWPCR$lambda)
-  l <- seq(from=0, to=l.max*molecules, by=w)
-  lp <- l / molecules
+  l <- seq(from=0, to=2*l.max, by=w)
+
+  # If m1 == m2, then the resulting distribution for m1 + m2 == molecules is
+  # simply the convolution of the distribution for m1 (resp. m2) with itself,
+  # and then re-scaled in x-direction to again have expectation 1. But if
+  # m1 == m2 - 1, then what we actually compute is the weighted average
+  #   X_m = (m1 / m) X_m1 + (m2 / m) * X_m2
+  #       = (m2 / m) [ (m1 / m2) X_m1 + X_m2 ].
+  # We thus need to re-scale X_m1 in x-direction to have mean m1 / m2 < 1,
+  # then X_m2, and re-scale the sum from mean (m1 / m2 + 1) back to 1.
+  l1 <- if (m1 != m2) l * (m2 / m1) else l
+  lp <- l * (m2 / molecules)
+
+  # Get data matrices for the both summands.
+  data <- matrix(NA, nrow=nrow(GWPCR$data[[1]]), ncol=ncol(GWPCR$data[[1]]))
+  data1 <- GWPCR$data[[m1]]
+  data2 <- GWPCR$data[[m2]]
 
   # Process each row (i.e. efficiency) separately.
   for(e in 1:length(GWPCR$efficiency)) {
-    # Transform original density to grid l by spline interpolation. Be carefull
-    # to interpolate only within the original data range, and zero-extend beyond
-    # that.
-    d <- c(pmax(splinefun(GWPCR$lambda, GWPCR$data[[1]][e,])(l[l <= l.max]), 0),
-           rep(0, sum(l > l.max)))
-    # Compute the convolution, and transform back to the original grid, again
-    # by spline interpolation
-    d <- pmax(splinefun(lp, Re(fft(fft(d)**molecules, inverse = TRUE)))(GWPCR$lambda), 0)
+    i.lo <- min(which.max(data1[e,] > 0), which.max(data2[e,] > 0)) - 1
+    stopifnot(i.lo > 0)
+    i.hi <- length(GWPCR$lambda) - min(which.max(rev(data1[e,]) > 0), which.max(rev(data2[e,]) > 0)) + 1
+    stopifnot(i.lo <= length(GWPCR$lambda))
+    l.lo <- GWPCR$lambda[i.lo]
+    l.hi <- GWPCR$lambda[i.hi]
+
+    # Apply x-asis scaling to distribution X_m1 for m1 molecules as explained
+    # above, and evaluate on the uniform grid l. Beyond the original domain
+    # of X_m1's density don't extrapolate with splinefun(), but instead set zero!
+    f1 <- fft(c(pmax(splinefun(GWPCR$lambda, data1[e,])(l1[l1 <= l.max]), 0),
+                rep(0, sum(l1 > l.max))))
+
+    # Evaluatedistribution X_m2 for m2 molecules on the uniform grid l. Beyond
+    # the original domain of X_m1's density don't extrapolate with splinefun(),
+    # but instead set zero!
+    f2 <- if (m1 != m2)
+      fft(c(pmax(splinefun(GWPCR$lambda, data1[e,])(l[l <= l.max]), 0),
+            rep(0, sum(l > l.max))))
+    else
+      f1
+
+    # Convolute to compute (weighted) sum of X_m1 and X_m2, and evaluate result
+    # on the non-uniform grid used to store distributions (GWPCR$lambda).
+    d <- pmax(splinefun(lp, Re(fft(f1 * f2, inverse = TRUE)))(GWPCR$lambda), 0)
+
     # Pick a set of intervals (start with the ones where the density is smallest),
     # which all combined have probability less than one in a million, and set
     # the probability to zero there.
@@ -114,12 +146,13 @@ gwpcr.molecules.precompute <- function(molecules) {
     z <- (p <= pc[which.max(pc >= GWPCR$density.threshold)-1])
     p[z] <- 0
     d[z] <- 0
+
     # Normalize so that riemann sum is exactly one
     d <- d / sum(p)
+
     # Store into output data matrix
     data[e,] <- d
   }
 
   GWPCR$data[[molecules]] <- data
 }
-
