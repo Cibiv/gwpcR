@@ -103,7 +103,7 @@ gwpcr.molecules.precompute <- function(molecules) {
   # We thus need to re-scale X_m1 in x-direction to have mean m1 / m2 < 1,
   # then X_m2, and re-scale the sum from mean (m1 / m2 + 1) back to 1.
   l1 <- if (m1 != m2) GWPCR$lambda * (m1 / m2) else GWPCR$lambda
-  lp <- l * (m2 / molecules)
+  lp <- if (m1 != m2) l * (m2 / molecules) else l / 2
 
   # Get data matrices for the both summands.
   data <- matrix(NA, nrow=nrow(GWPCR$data[[1]]), ncol=ncol(GWPCR$data[[1]]))
@@ -112,24 +112,17 @@ gwpcr.molecules.precompute <- function(molecules) {
 
   # Process each row (i.e. efficiency) separately.
   for(e in 1:length(GWPCR$efficiency)) {
-    i.lo <- min(which.max(data1[e,] > 0), which.max(data2[e,] > 0)) - 1
-    stopifnot(i.lo > 0)
-    i.hi <- length(GWPCR$lambda) - min(which.max(rev(data1[e,]) > 0), which.max(rev(data2[e,]) > 0)) + 1
-    stopifnot(i.lo <= length(GWPCR$lambda))
-    l.lo <- GWPCR$lambda[i.lo]
-    l.hi <- GWPCR$lambda[i.hi]
-
     # Apply x-asis scaling to distribution X_m1 for m1 molecules as explained
     # above, and evaluate on the uniform grid l. Beyond the original domain
     # of X_m1's density don't extrapolate with splinefun(), but instead set zero!
     f1 <- fft(c(pmax(splinefun(l1, data1[e,])(l[l <= l.max]), 0),
                 rep(0, sum(l > l.max))))
 
-    # Evaluatedistribution X_m2 for m2 molecules on the uniform grid l. Beyond
+    # Evaluated istribution X_m2 for m2 molecules on the uniform grid l. Beyond
     # the original domain of X_m1's density don't extrapolate with splinefun(),
     # but instead set zero!
     f2 <- if (m1 != m2)
-      fft(c(pmax(splinefun(GWPCR$lambda, data1[e,])(l[l <= l.max]), 0),
+      fft(c(pmax(splinefun(GWPCR$lambda, data2[e,])(l[l <= l.max]), 0),
             rep(0, sum(l > l.max))))
     else
       f1
@@ -149,6 +142,7 @@ gwpcr.molecules.precompute <- function(molecules) {
 
     # Normalize so that riemann sum is exactly one
     d <- d / sum(p)
+    stopifnot(abs(sum(GWPCR$lambda * d * GWPCR$lambda.weights) - 1) < 1e-2)
 
     # Store into output data matrix
     data[e,] <- d
