@@ -1,5 +1,5 @@
 #' @export
-gwpcrpois.mom <- function(c, threshold=1, molecules=1) {
+gwpcrpois.mom <- function(mean, var, threshold=1, molecules=1) {
   # A random variable C distributed according to the PCR-Poisson mixture
   # with parameters E (efficiency) and lambda0 has mean
   #   E( C | E, lambda0 ) = lambda0,
@@ -18,10 +18,8 @@ gwpcrpois.mom <- function(c, threshold=1, molecules=1) {
   # XXX: In principle, the relationship between variance and efficiency is
   # analytically tractable, so gwpcr.sd.inv could be replaced by the exact
   # formula.
-  c.mean <- mean(c)
-  c.var <- var(c)
-  lambda0 <- c.mean
-  efficiency <- gwpcr.sd.inv(sqrt(max((c.var - lambda0) / ( lambda0^2 ), 0)),
+  lambda0 <- mean
+  efficiency <- gwpcr.sd.inv(sqrt(max((var - lambda0) / ( lambda0^2 ), 0)),
                              molecules=molecules)
 
   # If the data is censored, i.e. if only counts >= threshold > 0 are
@@ -38,7 +36,7 @@ gwpcrpois.mom <- function(c, threshold=1, molecules=1) {
   #   p_0 =       Sum P( C=c | E, lambda0 ) for 0 <= c < TH,
   # then the following relationship holds:
   #   (A)  E( C | E, lambda0 ) = lambda_0 = m_0 + (1 - p_0) * c_m,
-  #   (B)  V( C | E, lambda0 ) = v = v_1 + (1 - p_0) * ( v_m + c_m^2 ) - lambda_0^2.
+  #   (B)  V( C | E, lambda0 ) = v = v_0 + (1 - p_0) * ( v_m + c_m^2 ) - lambda_0^2.
   # Together with the relationship between v and E from above, i.e.
   #   (C)  V( L | E ) = ( v - lambda0 ) / lambda0^2
   # this yields a system of equations in E and lambda with parameters
@@ -59,8 +57,8 @@ gwpcrpois.mom <- function(c, threshold=1, molecules=1) {
       d <- dgwpcrpois(x, efficiency=efficiency, lambda0=lambda0,
                       threshold=0, molecules=molecules)
       p <- (1 - sum(d))
-      lambda0.p <- sum(x * d)   + p * c.mean
-      v         <- sum(x^2 * d) + p * (c.var + c.mean^2) - lambda0.p^2
+      lambda0.p <- sum(x * d)   + p * mean
+      v         <- sum(x^2 * d) + p * (var + mean^2) - lambda0.p^2
       efficiency.p <- gwpcr.sd.inv(sqrt(max((v - lambda0.p) / ( lambda0.p^2 ), 0)),
                                    molecules=molecules)
 
@@ -88,7 +86,7 @@ gwpcrpois.mle <- function(c, threshold=1, molecules=1) {
   # Use method of moments estimates as initial parameters. Since we do the parameter
   # search with clamp.efficiency set to FALSE, we must take care to clamp it to the
   # range of efficiencies found in GWPCR here
-  mom <- gwpcrpois.mom(c, molecules=molecules)
+  mom <- gwpcrpois.mom(mean=mean(c), var=var(c), molecules=molecules, threshold=threshold)
   mom$efficiency <- pmin(pmax(GWPCR$efficiency[1], mom$efficiency), tail(GWPCR$efficiency,1))
 
   # Optimize likelihood
