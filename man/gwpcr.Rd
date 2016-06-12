@@ -9,7 +9,7 @@
 \alias{rgwpcr}
 \title{PCR Product Distribution induced by a Binomial Galton-Watson Process}
 \usage{
-rgwpcr(n, efficiency, molecules = 1)
+rgwpcr(n, efficiency, molecules = 1, cycles = NA)
 
 dgwpcr(lambda, efficiency, molecules = 1)
 

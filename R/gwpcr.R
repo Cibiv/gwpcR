@@ -16,7 +16,7 @@ NULL
 #' @rdname gwpcr
 #' @useDynLib gwpcR gwpcr_simulate
 #' @export
-rgwpcr <- function(n, efficiency, molecules=1) {
+rgwpcr <- function(n, efficiency, molecules=1, cycles=NA) {
   if (!is.numeric(efficiency) || (length(efficiency) != 1) || (efficiency < 0) || (efficiency > 1))
     stop('efficiency must be a numeric scalar within [0,1]')
   if (!is.numeric(molecules) || (length(molecules) != 1) || (molecules != floor(molecules)) || (molecules < 1))
@@ -25,7 +25,8 @@ rgwpcr <- function(n, efficiency, molecules=1) {
   # Determine how many cycles are necessary on average to produce 1e6
   # molecules. After that point, we assume that the additional variability
   # is negligible.
-  cycles <- ceiling(log(1e6 / molecules)/log(1+efficiency))
+  if (is.na(cycles))
+    cycles <- ceiling(log(1e6 / molecules)/log(1+efficiency))
 
   # Start with initial copy number
   if ((efficiency > 0) && (efficiency < 1.0)) {

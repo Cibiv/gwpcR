@@ -18,8 +18,14 @@ NULL
 #' @rdname gwpcrpois
 #' @useDynLib gwpcR gwpcrpois_simulate
 #' @export
-rgwpcrpois <- function(samples, efficiency, lambda0, threshold=1, molecules=1) {
-  # Determine probability of a sample being accepted (i.e., of being >= threshold)
+rgwpcrpois <- function(samples, efficiency, lambda0, threshold=1, molecules=1, cycles=NA) {
+  # Determine how many cycles are necessary on average to produce 1e6
+  # molecules. After that point, we assume that the additional variability
+  # is negligible.
+  if (is.na(cycles))
+    cycles <- ceiling(log(1e6 / molecules)/log(1+efficiency))
+
+    # Determine probability of a sample being accepted (i.e., of being >= threshold)
   p.th <- if (threshold > 0)
     1.0 - pgwpcrpois(threshold-1, efficiency=efficiency, lambda0=lambda0,
                      threshold=0, molecules=molecules)
@@ -41,7 +47,7 @@ rgwpcrpois <- function(samples, efficiency, lambda0, threshold=1, molecules=1) {
               efficiency=as.double(efficiency),
               lambda0=as.double(lambda0),
               molecules=as.double(molecules),
-              cycles=as.integer(ceiling(log(1e6 / molecules)/log(1+efficiency))),
+              cycles=cycles,
               NAOK=TRUE)$samples
     # Remove samples below threshold, and determine how many to use
     s.c <- s.c[s.c >= threshold]

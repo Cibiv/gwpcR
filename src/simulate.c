@@ -1,5 +1,8 @@
 #include <R.h>
 #include <Rmath.h>
+#include <R_ext/Utils.h>
+
+static const int BATCH_MASK = (1 << 18) - 1;
 
 void gwpcr_simulate(int *nsamples_, double *samples, double *efficiency_, double* molecules_, int *ncycles_)
 {
@@ -12,9 +15,14 @@ void gwpcr_simulate(int *nsamples_, double *samples, double *efficiency_, double
 
   const double efficiency = *efficiency_;
   const int ncycles = *ncycles_;
-  for(int i=0; i < ncycles; ++i)
-    for(int j=0; j < nsamples; ++j)
+  for(int i=0; i < ncycles; ++i) {
+    for(int j=0; j < nsamples; ++j) {
+      if (!(j & BATCH_MASK))
+        R_CheckUserInterrupt();
+
       samples[j] += rbinom(samples[j], efficiency);
+    }
+  }
 
   const double scale = 1.0 / (molecules * pow(1+efficiency, ncycles));
   for(int j=0; j < nsamples; ++j)
@@ -31,8 +39,12 @@ void gwpcrpois_simulate(int *nsamples_, double *samples, double *efficiency_, do
 
   const int nsamples = *nsamples_;
   const double lambda0 = *lambda0_;
-  for(int j=0; j < nsamples; ++j)
+  for(int j=0; j < nsamples; ++j) {
+    if (!(j & BATCH_MASK))
+      R_CheckUserInterrupt();
+
     samples[j] = rpois(samples[j] * lambda0);
+  }
 
   PutRNGstate();
 }
