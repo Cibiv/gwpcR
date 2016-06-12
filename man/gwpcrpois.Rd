@@ -9,11 +9,9 @@
 \usage{
 rgwpcrpois(samples, efficiency, lambda0, threshold = 1, molecules = 1)
 
-dgwpcrpois(c, efficiency, lambda0, threshold = 1, molecules = 1,
-  clamp.efficiency = TRUE)
+dgwpcrpois(c, efficiency, lambda0, threshold = 1, molecules = 1)
 
-pgwpcrpois(c, efficiency, lambda0, threshold = 1, molecules = 1,
-  clamp.efficiency = TRUE)
+pgwpcrpois(c, efficiency, lambda0, threshold = 1, molecules = 1)
 }
 \arguments{
 \item{efficiency}{}

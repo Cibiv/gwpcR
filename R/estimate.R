@@ -98,8 +98,7 @@ gwpcrpois.mle <- function(c, threshold=1, molecules=1) {
                # return NA.
                if ((e >= 0) && (e <= 1) && (l > 0))
                  sum(log(dgwpcrpois(c=v$values, efficiency=e, lambda0=l,
-                                    threshold=threshold, molecules=molecules,
-                                    clamp.efficiency=FALSE)) * v$lengths)
+                                    threshold=threshold, molecules=molecules)) * v$lengths)
                else
                  as.numeric(NA)
              }, method="Nelder-Mead",

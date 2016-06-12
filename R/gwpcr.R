@@ -211,26 +211,39 @@ gwpcr.mixture <- function(x, FUN, efficiency, lambda0, molecules=1) {
 
   # Process each combination of efficiency, lambda0 and molecule count separately
   handle.parameters(list(x=x, efficiency=efficiency, lambda0=lambda0, molecules=molecules), by=c("efficiency", "lambda0", "molecules"), {
-    # Get probabilities for lambda lying within the intervals defined by
-    # GWPCR$lambda.midpoints by multiplying the densities at the points lambda
-    # by the interval lengths. Then set the probability to zero whereever it
-    # is smaller than 1e-6 / <number of points> -- note that the the total
-    # probability of intervals ignored that way is <= 1e-6.
-    w <- dgwpcr(lambda=GWPCR$lambda, efficiency=efficiency, molecules=molecules) * GWPCR$lambda.weights
-    w[w <= (1e-6 / length(w))] <- 0.0
-    w <- w / sum(w)
+    # Deal with out-of-range efficiency values
+    efficiency <- if ((efficiency < 0) || (efficiency > 1.0))
+      NA
+    else if (efficiency <= 0.5 + 0.5*tail(GWPCR$efficiency, 1))
+      pmin(pmax(head(GWPCR$efficiency, 1), efficiency), tail(GWPCR$efficiency, 1))
+    else
+      1.0
 
-    # For each lambda, evaluate the function at X. Note that each function call
-    # can yield a vector -- we turn those into row vectors, and concatenate them
-    # vertically to produce matrix d whose rows correspond to different lambdas.
-    l <- GWPCR$lambda
-    d <- do.call(rbind, lapply(1:length(l), function(i) {
-      if (!is.na(w[i]) && (w[i] > 0.0)) FUN(as.vector(x), lambda=l[i]*lambda0) else rep(0, length(x))
-    }))
+    if (efficiency < 1.0) {
+      # Get probabilities for lambda lying within the intervals defined by
+      # GWPCR$lambda.midpoints by multiplying the densities at the points lambda
+      # by the interval lengths. Then set the probability to zero whereever it
+      # is smaller than 1e-6 / <number of points> -- note that the the total
+      # probability of intervals ignored that way is <= 1e-6.
+      w <- dgwpcr(lambda=GWPCR$lambda, efficiency=efficiency, molecules=molecules) * GWPCR$lambda.weights
+      w[w <= (1e-6 / length(w))] <- 0.0
+      w <- w / sum(w)
 
-    # Average the function's results over the range of lambda values, weighting
-    # the value with the probability of the corresponding lambda interval from
-    # above (vector w).
-    apply(d, MARGIN=2, FUN=function(c) { sum(c * w) })
+      # For each lambda, evaluate the function at X. Note that each function call
+      # can yield a vector -- we turn those into row vectors, and concatenate them
+      # vertically to produce matrix d whose rows correspond to different lambdas.
+      l <- GWPCR$lambda
+      d <- do.call(rbind, lapply(1:length(l), function(i) {
+        if (!is.na(w[i]) && (w[i] > 0.0)) FUN(as.vector(x), lambda=l[i]*lambda0) else rep(0, length(x))
+      }))
+
+      # Average the function's results over the range of lambda values, weighting
+      # the value with the probability of the corresponding lambda interval from
+      # above (vector w).
+      apply(d, MARGIN=2, FUN=function(c) { sum(c * w) })
+    } else {
+      # For efficiency 1.0, the PCR distribution has a single mass at lambda=1
+      FUN(as.vector(x), lambda=lambda0)
+    }
   })
 }

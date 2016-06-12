@@ -59,10 +59,7 @@ rgwpcrpois <- function(samples, efficiency, lambda0, threshold=1, molecules=1) {
 
 #' @rdname gwpcrpois
 #' @export
-dgwpcrpois <- function(c, efficiency, lambda0, threshold=1, molecules=1, clamp.efficiency=TRUE) {
-  if (clamp.efficiency)
-    efficiency <- pmin(pmax(GWPCR$efficiency[1], efficiency), tail(GWPCR$efficiency,1))
-
+dgwpcrpois <- function(c, efficiency, lambda0, threshold=1, molecules=1) {
   handle.parameters(list(c=c, efficiency=efficiency, lambda0=lambda0,
                          threshold=threshold, molecules=molecules),
                     by=c('efficiency', 'lambda0', 'threshold', 'molecules'), {
@@ -84,10 +81,7 @@ dgwpcrpois <- function(c, efficiency, lambda0, threshold=1, molecules=1, clamp.e
 
 #' @rdname gwpcrpois
 #' @export
-pgwpcrpois <- function(c, efficiency, lambda0, threshold=1, molecules=1, clamp.efficiency=TRUE) {
-  if (clamp.efficiency)
-    efficiency <- pmin(pmax(GWPCR$efficiency[1], efficiency), tail(GWPCR$efficiency,1))
-
+pgwpcrpois <- function(c, efficiency, lambda0, threshold=1, molecules=1) {
     handle.parameters(list(c=c, efficiency=efficiency, lambda0=lambda0,
                          threshold=threshold, molecules=molecules),
                     by=c('efficiency', 'lambda0', 'threshold', 'molecules'), {
