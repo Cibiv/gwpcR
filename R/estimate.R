@@ -1,5 +1,14 @@
 #' @export
 gwpcrpois.mom <- function(mean, var, threshold=1, molecules=1) {
+  if (!is.numeric(mean) || (length(mean) != 1) || (mean <= 0) || (mean >= Inf))
+    stop('mean must be a strictly positive numeric scalar')
+  if (!is.numeric(var) || (length(var) != 1) || (var <= 0) || (var >= Inf))
+    stop('var must be a strictly positive numeric scalar')
+  if (!is.numeric(threshold) || (length(threshold) != 1) || (threshold != floor(threshold)) || (threshold < 0))
+    stop('threshold must be a non-negative integral scalar')
+  if (!is.numeric(molecules) || (length(molecules) != 1) || (molecules != floor(molecules)) || (molecules < 1))
+    stop('molecules must be a strictly positive integral scalar')
+
   # A random variable C distributed according to the PCR-Poisson mixture
   # with parameters E (efficiency) and lambda0 has mean
   #   E( C | E, lambda0 ) = lambda0,
@@ -63,7 +72,7 @@ gwpcrpois.mom <- function(mean, var, threshold=1, molecules=1) {
                                    molecules=molecules)
 
       if ((abs(lambda0 - lambda0.p) / lambda0 <= rel.tol) &&
-          (abs(efficiency - efficiency.p) / efficiency <= rel.tol))
+          (abs(efficiency - efficiency.p) / max(efficiency, 1e-3) <= rel.tol))
         converged <- TRUE
 
       lambda0 <- lambda0.p
