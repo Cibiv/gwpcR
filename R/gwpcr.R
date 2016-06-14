@@ -163,13 +163,9 @@ gwpcr.sd <- function(efficiency, molecules=1) {
       sqrt(sum((GWPCR$lambda - 1.0)^2 * GWPCR$data[[molecules]][i,] * GWPCR$lambda.weights))
     }))
 
-    # Estimate y-intercept of curve, i.e. maximal sd, assuming that
-    # the std.dev. is reasonably linear within [0, min(efficiency)]
-    s0 <- s[1] - GWPCR$efficiency[1] * (s[2]-s[1]) / (GWPCR$efficiency[2]-GWPCR$efficiency[1])
-
     # Create interpolating (monotone) spline.
     GWPCR$sd.fun[[molecules]] <-
-      splinefun(c(0, GWPCR$efficiency, 1), c(s0, s, 0), method='monoH.FC')
+      splinefun(c(0, GWPCR$efficiency, 1), c(1, s, 0), method='monoH.FC')
   }
 
   # Evaluate spline at requested points
