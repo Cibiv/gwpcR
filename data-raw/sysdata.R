@@ -9,6 +9,7 @@ CORES <- 48
 GWPCR <- new.env()
 GWPCR$samples <- 1e9
 GWPCR$until.molecules <- 1e7
+GWPCR$cycles.max <- 2000
 GWPCR$density.threshold <- 1e-6
 GWPCR$bandwidth.min <- 0.0025
 GWPCR$bandwidth.max <- 0.01
@@ -67,6 +68,9 @@ GWPCR$data <- list(matrix(nrow=length(GWPCR$efficiency),
 # Density estimation bandwidth
 GWPCR$bandwidth <- rep(as.numeric(NA), length(GWPCR$efficiency))
 
+# Actual number of cycles
+GWPCR$cycles <- rep(as.numeric(NA), length(GWPCR$efficiency))
+
 # Density estimation on non-uniform grid with non-uniform bandwidths
 density.noniform <- function(r, efficiency) {
   # Since stats::density can only do bandwith estimation with a uniform
@@ -86,6 +90,7 @@ density.noniform <- function(r, efficiency) {
   tp <- function(x) { 1 + beta * exp(-x*alpha) }
 
   # Transform samples r, and transform points x at which density is to be estimated.
+  message('Efficiency=', efficiency, ': Transforming data with alpha=', alpha, ', beta=', beta)
   rp <- t(r)
   lp <- t(GWPCR$lambda)
 
@@ -108,47 +113,61 @@ density.noniform <- function(r, efficiency) {
 }
 
 
-simulate.cycle <- cxxfunction(signature(samples_="numeric", efficiency_="numeric"), body='
-  using namespace Rcpp;
-  NumericVector result;
-  RNGScope rngScope;
+simulate.intern <- cfunction(signature(nsamples="integer", samples="numeric", efficiency="numeric", ncycles="integer", log="logical"), body='
+  static const int BATCH_MASK = (1 << 18) - 1;
+  const int log_ = *log;
+  
+  GetRNGstate();
+  fflush(stderr);
 
-  // Arguments, and create result vector
-  const NumericVector samples = as<NumericVector>(samples_);
-  const double efficiency = as<double>(efficiency_);
-  const std::size_t n = samples.size();
-  result = NumericVector(n);
+  const int nsamples_ = *nsamples;
+  for(int j=0; j < nsamples_; ++j)
+    samples[j] = 1.0;
 
-  // Simulate cycle
-  for(std::size_t i=0; i < n; ++i)
-    result[i] = samples[i] + R::rbinom(samples[i], efficiency);
+  const double efficiency_ = *efficiency;
+  const int ncycles_ = *ncycles;
+  for(int i=0; i < ncycles_; ++i) {
+    if (log_)
+      fprintf(stderr, "Efficiency=%f: Cycle %d/%d\\n", efficiency_, (i+1), ncycles_);
 
-  // Return result
-  return(result);
-', plugin='Rcpp', convention='.Call', language='C++')
+    for(int j=0; j < nsamples_; ++j) {
+      if (!(j & BATCH_MASK))
+        R_CheckUserInterrupt();
 
-simulate <- function(efficiency, cycles, samples=1) {
+        samples[j] += Rf_rbinom(samples[j], efficiency_);
+    }
+  }
+
+  if (log_)
+    fprintf(stderr, "Efficiency=%f: Re-scaling samples\\n", efficiency_);
+  const double scale = 1.0 / pow(1+efficiency_, ncycles_);
+  for(int j=0; j < nsamples_; ++j)
+    samples[j] *= scale;
+
+  fflush(stderr);
+  PutRNGstate();
+', convention='.C', includes='#include<Rmath.h>', language='C')
+
+simulate <- function(efficiency, ncycles, nsamples=1) {
   # Produce one CORE-th of the total number of required samples
-  n.c <- ceiling(samples / CORES)
+  nsamples.percore <- ceiling(nsamples / CORES)
 
   r <- mclapply(1:CORES, FUN=function(c) {
-    # Start with one copy
-    s.c <- rep(1, n.c)
-    for(i in 1:cycles)
-      # Simulate a cycle
-      s.c <- simulate.cycle(s.c, efficiency)
-    s.c
+    u <- simulate.intern(nsamples=nsamples.percore,
+                         samples=double(nsamples.percore),
+                         efficiency=efficiency,
+                         ncycles=ncycles,
+                         log=(c==1))
+    u$samples
   }, mc.preschedule=TRUE, mc.cores=CORES, mc.silent=FALSE)
 
-  # Combine results from all cores, throw away unnecessary samples, and scale
-  # to have expectation 1
-  f <- ((1+efficiency)**cycles)
-  s <- rep(as.numeric(NA), samples)
+  # Combine results from all cores, throw away unnecessary samples
+  s <- rep(as.numeric(NA), nsamples)
   for(i in 1:length(r)) {
-    l <- n.c * (i - 1) + 1
-    u <- min(l + n.c, samples)
+    l <- nsamples.percore * (i - 1) + 1
+    u <- min(l + nsamples.percore, nsamples)
     if (l <= u)
-      s[l:u] <- r[[i]][1:(u-l+1)] / f
+      s[l:u] <- r[[i]][1:(u-l+1)]
   }
 
   return(s)
@@ -160,7 +179,8 @@ RNGkind("L'Ecuyer-CMRG")
 # Compute PCR distribution
 for(e in 1:length(GWPCR$efficiency)) {
   efficiency <- GWPCR$efficiency[e]
-  cycles <- ceiling(log(GWPCR$until.molecules)/log(1+efficiency))
+  cycles <- min(ceiling(log(GWPCR$until.molecules)/log(1+efficiency)), GWPCR$cycles.max)
+  GWPCR$cycles[e] <- cycles
 
   # Generate samples
   message('Efficiency=', efficiency, ': Generating ', GWPCR$samples, ' samples using ', cycles, ' cycles on ', CORES, ' cores')
@@ -185,6 +205,7 @@ for(e in 1:length(GWPCR$efficiency)) {
     stop('invalid samples generated')
   }
 
+  # Estimate density
   res <- density.noniform(s, efficiency=efficiency)
   GWPCR$bandwidth[e] <- res$bw
   d <- res$d
