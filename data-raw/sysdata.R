@@ -11,16 +11,19 @@ GWPCR$samples <- 1e9
 GWPCR$until.molecules <- 1e7
 GWPCR$density.threshold <- 1e-6
 GWPCR$bandwidth.min <- 0.0025
-GWPCR$lambda.def <- list(list(to=0.05, by=0.005),
+GWPCR$bandwidth.max <- 0.01
+GWPCR$lambda.def <- list(list(to=0.025,by=0.0025),
+                         list(to=0.05, by=0.005),
                          list(to=0.95, by=0.01),
+                         list(to=1.0,  by=0.005),
+                         list(to=1.05, by=0.0025),
                          list(to=1.2,  by=0.005),
                          list(to=1.5,  by=0.01),
                          list(to=2,    by=0.02),
                          list(to=10,   by=0.1),
                          list(to=15,   by=0.5),
                          list(to=50,   by=5))
-GWPCR$efficiency.def <- list(list(to=0.05, by=0.05),
-                             list(to=0.90, by=0.01),
+GWPCR$efficiency.def <- list(list(to=0.90, by=0.01),
                              list(to=0.94, by=0.005),
                              list(to=0.99, by=0.002))
 
@@ -63,6 +66,47 @@ GWPCR$data <- list(matrix(nrow=length(GWPCR$efficiency),
 
 # Density estimation bandwidth
 GWPCR$bandwidth <- rep(as.numeric(NA), length(GWPCR$efficiency))
+
+# Density estimation on non-uniform grid with non-uniform bandwidths
+density.noniform <- function(r, efficiency) {
+  # Since stats::density can only do bandwith estimation with a uniform
+  # bandwidth, we use transform t before bandwidth estimation to decrease
+  # the effective bandwidth within [0, 0.2] at low efficiencies (coincidentally,
+  # also <= 0.2). This accounts for the large derivative of the density close
+  # to zero for such low efficiencies (the density is approximately gamma!).
+  # Transform t was chosen to have derivative 4 at 0, and approximately 1
+  # on [0.2, inf].
+
+  # Determine transformation parameters. Alpha determines where the
+  # derivative of t reaches (almost) 1. beta is the derivative at zero
+  # minus 1. If beta is zero, the transform is the identity.
+  alpha <- 3/0.2
+  beta <- 3 * min(1, max(1 - (efficiency - 0.1)/0.2, 0))
+  t  <- function(x) { x - beta * exp(-x*alpha) / alpha }
+  tp <- function(x) { 1 + beta * exp(-x*alpha) }
+
+  # Transform samples r, and transform points x at which density is to be estimated.
+  rp <- t(r)
+  lp <- t(GWPCR$lambda)
+
+  # Estimate density of transformed data. Bandwidth is estimates using
+  # the original data, and clipped to [bandwidth.min, bandwith.max].
+  # 10 estimates per bandwidth (i.e. kernel std.dev.) are produced.
+  lp.mm <- range(lp)
+  message('Efficiency=', efficiency, ': Estimating bandwidth')
+  bw.raw <- bw.nrd0(r)
+  bw <- min(max(GWPCR$bandwidth.min, bw.raw), GWPCR$bandwidth.max)
+
+  message('Efficiency=', efficiency, ': Estimating density using bandwidth ', bw, ' (bw.nrd0 estimate was ', bw.raw, ')')
+  d <- stats::density(rp, bw=bw, from=lp.mm[1], to=lp.mm[2],
+                      n=ceiling((lp.mm[2]-lp.mm[1]) / (0.1*bw)))
+
+  message('Efficiency=', efficiency, ': Computing density estimates on lambda grid')
+  # Use monotone interpolation to find density estimates at requested points
+  f <- splinefun(d$x, c(0, tail(d$y, -1)), method="monoH.FC")
+  return(list(d=f(lp) * tp(GWPCR$lambda), bw=bw))
+}
+
 
 simulate.cycle <- cxxfunction(signature(samples_="numeric", efficiency_="numeric"), body='
   using namespace Rcpp;
@@ -140,24 +184,10 @@ for(e in 1:length(GWPCR$efficiency)) {
     print(s[is.na(s)])
     stop('invalid samples generated')
   }
-  message('Efficiency=', efficiency, ': Estimating bandwidth')
-  bw <- bw.nrd0(s)
-  GWPCR$bandwidth[e] <- max(bw, GWPCR$bandwidth.min)
-  message('Efficiency=', efficiency, ': Estimating density using bandwidth ', GWPCR$bandwidth[e], ' (bw.nrd0 estimate was ', bw, ')')
-  l <- density(s, kernel='gaussian', adjust=2, bw=GWPCR$bandwidth[e], from=0, to=L.MAX, n=L.MAX/L.INC)
 
-  # Find indices into uniformly spaced density output that correspond to our non-uniform lambda grid
-  i <- c(1, unlist(local({
-    p <- list(to=0); m <- 1;
-    lapply(GWPCR$lambda.def, function(e) {
-      r <- tail(seq(from=m, to=m+(e$to-p$to)/L.INC, by=e$by/L.INC), -1)
-      p <<- e
-      m <<- max(r)
-      r
-    })
-  })))
-  stopifnot(abs(l$x[i] - GWPCR$lambda) <= 1e-12)
-  d <- c(0, l$y[tail(i,-1)])
+  res <- density.noniform(s, efficiency=efficiency)
+  GWPCR$bandwidth[e] <- res$bw
+  d <- res$d
 
   # Pick a set of intervals (start with the ones where the density is smallest),
   # which all combined have probability less than one in a million, and set
