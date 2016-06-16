@@ -58,6 +58,10 @@ gwpcrpois.mom <- function(mean, var, threshold=1, molecules=1) {
   # are not re-evaluated immediately after updating lambda0, but instead the
   # old values to used to update the efficiency. The values ARE then re-computed
   # during the next round, however,
+  #
+  # XXX: Now that gwpcr.sd and gwpcr.sd.inv no longer use the GWPCR data,
+  # but instead a analytically derived formula, could the system of equations
+  # we use here be solved analytically as well? Probably!!!!!
   if (threshold > 0) {
     converged <- FALSE
     rel.tol <- 1e-3
