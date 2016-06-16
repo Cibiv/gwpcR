@@ -149,29 +149,17 @@ gwpcr.sd <- function(efficiency, molecules=1) {
   if (!is.numeric(molecules) || (length(molecules) != 1) || (molecules != floor(molecules)) || (molecules < 1))
     stop('molecules must be a positive integral scalar')
 
-  if (!is.list(GWPCR$sd.fun))
-    GWPCR$sd.fun <- list()
-
-  if ((molecules > length(GWPCR$sd.fun)) || is.null(GWPCR$sd.fun[[molecules]])) {
-    # Ensure that we have a data matrix for the requested molecule count
-    if ((molecules > length(GWPCR$data)) || is.null(GWPCR$data[[molecules]]))
-      gwpcr.molecules.precompute(molecules=molecules)
-
-    # Compute std. dev. of PCR distribution for pre-computed efficiencies
-    s <- unlist(lapply(1:length(GWPCR$efficiency), FUN=function(i) {
-      # Compute std.dev. of lambda for efficiency with index i
-      sqrt(sum((GWPCR$lambda - 1.0)^2 * GWPCR$data[[molecules]][i,] * GWPCR$lambda.weights))
-    }))
-
-    # Create interpolating (monotone) spline.
-    GWPCR$sd.fun[[molecules]] <-
-      splinefun(c(0, GWPCR$efficiency, 1), c(1, s, 0), method='monoH.FC')
-  }
-
-  # Evaluate spline at requested points
+  # The formula
+  #               1 - E     1
+  #   Var( L ) = ------- * ---
+  #               1 + E     m
+  # follows from the theory of general Galton-Watson processes by re-scaling
+  # with the expectation to find the convergent process. For m initial molecules,
+  # the variance is the variance of the m-fold average of the single molecule
+  # case, i.e. the std. dev. is one sqrt(m)-th of that single-molecule std. dev.
   r <- rep(as.numeric(NA), length(efficiency))
   e.v <- (efficiency >= 0) & (efficiency <= 1)
-  r[e.v] <- GWPCR$sd.fun[[molecules]](efficiency[e.v])
+  r[e.v] <- sqrt( (1-efficiency[e.v]) / (molecules * (1 + efficiency[e.v])) )
   r
 }
 
@@ -181,23 +169,15 @@ gwpcr.sd.inv <- function(sd, molecules=1) {
   if (!is.numeric(molecules) || (length(molecules) != 1) || (molecules != floor(molecules)) || (molecules < 1))
     stop('molecules must be a positive integral scalar')
 
-  if (!is.list(GWPCR$sd.inv.fun))
-    GWPCR$sd.inv.fun <- list()
-
-  if ((molecules > length(GWPCR$sd.inv.fun)) || is.null(GWPCR$sd.inv.fun[[molecules]])) {
-    y <- c(0, GWPCR$efficiency, 1)
-    x <- gwpcr.sd(y, molecules=molecules)
-    GWPCR$sd.inv.fun[[molecules]] <-
-      splinefun(c(sum(head(x,2) * c(2, -1)), x, sum(tail(x,2) * c(-1, 2))),
-                c(y[1],                      y, tail(y,1)                ),
-                method='monoH.FC')
-  }
-
-  # Evaluate spline at requested points
-  # Evaluate spline at requested points
+  # The formula
+  #        1 - m * Var(L)
+  #   E = ----------------
+  #        1 + m * Var(L)
+  # is found by solving for E in the formula in gwpcr.sd()
   r <- rep(as.numeric(NA), length(sd))
-  sd.v <- (sd >= 0)
-  r[sd.v] <- GWPCR$sd.inv.fun[[molecules]](sd[sd.v])
+  e.v <- (sd >= 0)
+  v <- pmin(molecules * sd[e.v] ^ 2, 1)
+  r[e.v] <- (1 - v) / (1 + v)
   r
 }
 
