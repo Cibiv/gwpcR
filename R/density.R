@@ -112,24 +112,31 @@ gwpcr.molecules.precompute <- function(molecules) {
 
   # Process each row (i.e. efficiency) separately.
   for(e in 1:length(GWPCR$efficiency)) {
-    # Apply x-asis scaling to distribution X_m1 for m1 molecules as explained
-    # above, and evaluate on the uniform grid l. Beyond the original domain
-    # of X_m1's density don't extrapolate with splinefun(), but instead set zero!
-    f1 <- fft(c(pmax(splinefun(l1, data1[e,])(l[l <= l.max]), 0),
-                rep(0, sum(l > l.max))))
+    if (!GWPCR$efficiency.usegamma[e]) {
+      # Apply x-asis scaling to distribution X_m1 for m1 molecules as explained
+      # above, and evaluate on the uniform grid l. Beyond the original domain
+      # of X_m1's density don't extrapolate with splinefun(), but instead set zero!
+      f1 <- fft(c(pmax(splinefun(l1, data1[e,])(l[l <= l.max]), 0),
+                  rep(0, sum(l > l.max))))
 
-    # Evaluated istribution X_m2 for m2 molecules on the uniform grid l. Beyond
-    # the original domain of X_m1's density don't extrapolate with splinefun(),
-    # but instead set zero!
-    f2 <- if (m1 != m2)
-      fft(c(pmax(splinefun(GWPCR$lambda, data2[e,])(l[l <= l.max]), 0),
-            rep(0, sum(l > l.max))))
-    else
-      f1
+      # Evaluated istribution X_m2 for m2 molecules on the uniform grid l. Beyond
+      # the original domain of X_m1's density don't extrapolate with splinefun(),
+      # but instead set zero!
+      f2 <- if (m1 != m2)
+        fft(c(pmax(splinefun(GWPCR$lambda, data2[e,])(l[l <= l.max]), 0),
+              rep(0, sum(l > l.max))))
+      else
+        f1
 
-    # Convolute to compute (weighted) sum of X_m1 and X_m2, and evaluate result
-    # on the non-uniform grid used to store distributions (GWPCR$lambda).
-    d <- pmax(splinefun(lp, Re(fft(f1 * f2, inverse = TRUE)))(GWPCR$lambda), 0)
+      # Convolute to compute (weighted) sum of X_m1 and X_m2, and evaluate result
+      # on the non-uniform grid used to store distributions (GWPCR$lambda).
+      d <- pmax(splinefun(lp, Re(fft(f1 * f2, inverse = TRUE)))(GWPCR$lambda), 0)
+    } else {
+      # Generate using gamma approximation. The gamma parameters are chosen
+      # to produce a distribution with mean 1 and the correct variance (see gwpcr.sd).
+      g.par <- 1 / gwpcr.sd(efficiency=GWPCR$efficiency[e], molecules=molecules)^2
+      d <- dgamma(GWPCR$lambda, shape = g.par, rate = g.par)
+    }
 
     # Pick a set of intervals (start with the ones where the density is smallest),
     # which all combined have probability less than one in a million, and set
