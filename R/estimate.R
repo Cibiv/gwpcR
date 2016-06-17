@@ -103,22 +103,30 @@ gwpcrpois.mle <- function(c, threshold=1, molecules=1) {
   mom$efficiency <- pmin(pmax(GWPCR$efficiency[1], mom$efficiency), tail(GWPCR$efficiency,1))
 
   # Optimize likelihood
-  r <- optim(par=c(efficiency.inv=1/mom$efficiency, lambda0=mom$lambda0),
-             fn=function(p) {
-               e <- 1 / p['efficiency.inv']
-               l <- p['lambda0']
-               # If parameters are valid, compute log-likelihood, otherwise
-               # return NA.
-               if ((e >= 0) && (e <= 1) && (l > 0))
-                 sum(log(dgwpcrpois(c=v$values, efficiency=e, lambda0=l,
-                                    threshold=threshold, molecules=molecules)) * v$lengths)
-               else
-                 as.numeric(NA)
-             }, method="Nelder-Mead",
-             control=list(fnscale=-1, parscale=c(efficiency.inv=mom$efficiency, lambda0=1/mom$lambda0)))
+  # We set parscale such that on the par/parscale scale that optim uses, a
+  # step of minus one away from the initial parameters corresponds to a decrease
+  # of 10%.  fnscale is set such that on the fn/fnscale scale of optim, such a step
+  # corresponds approximately to a unit change of the goal function. Remeber that
+  # optim minimizes, so to maximize fnscale contains an additional factor "-1".
+  logl <- function(p) {
+    e <- p['efficiency']
+    l <- p['lambda0']
+    # If parameters are valid, compute log-likelihood, otherwise
+    # return NA.
+    if ((e >= 0) && (e <= 1) && (l > 0))
+      sum(log(dgwpcrpois(c=v$values, efficiency=e, lambda0=l,
+                         threshold=threshold, molecules=molecules)) * v$lengths)
+    else
+      as.numeric(NA)
+  }
+  p0 <- c(efficiency=mom$efficiency, lambda0=mom$lambda0)
+  r <- optim(par=p0, fn=logl, method="Nelder-Mead",
+             control=list(fnscale=-abs(logl(p0) - logl(p0 * c(0.9, 0.9))),
+                          parscale=c(efficiency=p0['efficiency']/10,
+                                     lambda0=p0['lambda0']/10)))
 
   # Return result
-  list(efficiency=as.vector(1/r$par['efficiency.inv']),
+  list(efficiency=as.vector(r$par['efficiency']),
        lambda0=as.vector(r$par['lambda0']),
        threshold=threshold,
        molecules=molecules)
