@@ -17,8 +17,8 @@ NULL
 #' @useDynLib gwpcR gwpcr_simulate
 #' @export
 rgwpcr <- function(n, efficiency, molecules=1, cycles=NA) {
-  if (!is.numeric(efficiency) || (length(efficiency) != 1) || (efficiency < 0) || (efficiency > 1))
-    stop('efficiency must be a numeric scalar within [0,1]')
+  if (!is.numeric(efficiency) || (length(efficiency) != 1) || (efficiency <= 0) || (efficiency > 1))
+    stop('efficiency must be a numeric scalar within (0,1]')
   if (!is.numeric(molecules) || (length(molecules) != 1) || (molecules != floor(molecules)) || (molecules < 1))
     stop('molecules must be a positive integral scalar')
 
@@ -29,7 +29,7 @@ rgwpcr <- function(n, efficiency, molecules=1, cycles=NA) {
     cycles <- ceiling(log(1e6 / molecules)/log(1+efficiency))
 
   # Start with initial copy number
-  if ((efficiency > 0) && (efficiency < 1.0)) {
+  if (efficiency < 1.0) {
     # Flip a coin for each molecule in each sample to determine whether
     # its copied. That can be done efficiently by sampling from a binomial
     # distribution for each sample.
@@ -182,12 +182,12 @@ gwpcr.sd.inv <- function(sd, molecules=1) {
 }
 
 #' @export
-gwpcr.mixture <- function(x, FUN, efficiency, lambda0, molecules=1) {
+gwpcr.mixture <- function(x, FUN, efficiency, molecules=1) {
   if (!is.function(FUN))
     stop("FUN must be a function with signature FUN(x, lambda)")
 
-  # Process each combination of efficiency, lambda0 and molecule count separately
-  handle.parameters(list(x=x, efficiency=efficiency, lambda0=lambda0, molecules=molecules), by=c("efficiency", "lambda0", "molecules"), {
+  # Process each combination of efficiency and molecule count separately
+  handle.parameters(list(x=x, efficiency=efficiency, molecules=molecules), by=c("efficiency", "molecules"), {
     # Deal with out-of-range efficiency values
     efficiency <- if ((efficiency < 0) || (efficiency > 1.0))
       NA
@@ -196,7 +196,9 @@ gwpcr.mixture <- function(x, FUN, efficiency, lambda0, molecules=1) {
     else
       1.0
 
-    if (efficiency < 1.0) {
+    if (is.na(efficiency))
+      rep(as.numeric(NA), length(x))
+    else if (efficiency < 1.0) {
       # Get probabilities for lambda lying within the intervals defined by
       # GWPCR$lambda.midpoints by multiplying the densities at the points lambda
       # by the interval lengths. Then set the probability to zero whereever it
@@ -211,7 +213,7 @@ gwpcr.mixture <- function(x, FUN, efficiency, lambda0, molecules=1) {
       # vertically to produce matrix d whose rows correspond to different lambdas.
       l <- GWPCR$lambda
       d <- do.call(rbind, lapply(1:length(l), function(i) {
-        if (!is.na(w[i]) && (w[i] > 0.0)) FUN(as.vector(x), lambda=l[i]*lambda0) else rep(0, length(x))
+        if (!is.na(w[i]) && (w[i] > 0.0)) FUN(as.vector(x), l[i]) else rep(0, length(x))
       }))
 
       # Average the function's results over the range of lambda values, weighting
@@ -220,7 +222,7 @@ gwpcr.mixture <- function(x, FUN, efficiency, lambda0, molecules=1) {
       apply(d, MARGIN=2, FUN=function(c) { sum(c * w) })
     } else {
       # For efficiency 1.0, the PCR distribution has a single mass at lambda=1
-      FUN(as.vector(x), lambda=lambda0)
+      FUN(as.vector(x), 1)
     }
   })
 }

@@ -82,15 +82,16 @@ dgwpcrpois <- function(c, efficiency, lambda0, threshold=1, molecules=1) {
                     by=c('efficiency', 'lambda0', 'threshold', 'molecules'), {
                       # Compute P[X < Th]
                       p <- if (threshold >= 1)
-                        gwpcr.mixture(threshold-1, stats::ppois, efficiency=efficiency,
-                                      lambda0=lambda0, molecules=molecules)
+                        gwpcr.mixture(threshold-1, function(x,l) { stats::ppois(x,l*lambda0) },
+                                      efficiency=efficiency, molecules=molecules)
                       else
                         0
                       # Compute probabilities for those X which are >= TH
                       c.v <- (c >= threshold)
                       d <- rep(0, length(c))
-                      d[c.v] <- gwpcr.mixture(c[c.v], stats::dpois, efficiency=efficiency,
-                                              lambda0=lambda0, molecules=molecules)
+                      if (sum(c.v) > 0)
+                        d[c.v] <- gwpcr.mixture(c[c.v], function(x,l) { stats::dpois(x,l*lambda0) },
+                                                efficiency=efficiency, molecules=molecules)
                       # And compute P(X = c | X >= Th)
                       d / (1.0 - p)
                     })
@@ -104,15 +105,16 @@ pgwpcrpois <- function(c, efficiency, lambda0, threshold=1, molecules=1) {
                     by=c('efficiency', 'lambda0', 'threshold', 'molecules'), {
                       # Compute P[X < Th]
                       p <- if (threshold > 0)
-                        gwpcr.mixture(threshold-1, stats::ppois, efficiency=efficiency,
-                                      lambda0=lambda0, molecules=molecules)
+                        gwpcr.mixture(threshold-1, function(x,l) { stats::ppois(x,l*lambda0) },
+                                      efficiency=efficiency, molecules=molecules)
                       else
                         0
                       # Compute probabilities for those X which are >= TH
                       c.v <- (c >= threshold)
                       d <- rep(0, length(c))
-                      d[c.v] <- gwpcr.mixture(c[c.v], stats::ppois, efficiency=efficiency,
-                                              lambda0=lambda0, molecules=molecules)
+                      if (sum(c.v) > 0)
+                        d[c.v] <- gwpcr.mixture(c[c.v], function(x,l) { stats::ppois(x,l*lambda0) },
+                                                efficiency=efficiency, molecules=molecules)
                       # And compute P(X <= c | X >= Th)
                       (d - p) / (1.0 - p)
                     })
