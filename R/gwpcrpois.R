@@ -19,11 +19,20 @@ NULL
 #' @useDynLib gwpcR gwpcrpois_simulate
 #' @export
 rgwpcrpois <- function(samples, efficiency, lambda0, threshold=1, molecules=1, cycles=NA) {
+  if (!is.numeric(efficiency) || (length(efficiency) != 1) || (efficiency <= 0) || (efficiency > 1))
+    stop('efficiency must be a numeric scalar within (0,1]')
+  if (!is.numeric(lambda0) || (length(lambda0) != 1) || (lambda0 <= 0))
+    stop('lambda0 must be a numeric scalar within (0,Infinity)')
+  if (!is.numeric(threshold) || (length(threshold) != 1) || (threshold != floor(threshold)) || (threshold < 0))
+    stop('threshold must be a non-negative integral scalar')
+  if (!is.numeric(molecules) || (length(molecules) != 1) || (molecules != floor(molecules)) || (molecules < 1))
+    stop('molecules must be a positive integral scalar')
+
   # Determine how many cycles are necessary on average to produce 1e6
   # molecules. After that point, we assume that the additional variability
   # is negligible.
   if (is.na(cycles))
-    cycles <- ceiling(log(1e6 / molecules)/log(1+efficiency))
+    cycles <- ceiling(log(1e6 / molecules) / log(1+efficiency))
 
     # Determine probability of a sample being accepted (i.e., of being >= threshold)
   p.th <- if (threshold > 0)
@@ -38,6 +47,8 @@ rgwpcrpois <- function(samples, efficiency, lambda0, threshold=1, molecules=1, c
   while(n < samples) {
     # Compute number of samples generate, taking the average acception rate p.th
     # into account, as well as the fluctuations around that rate, which are binomial.
+    # We add 3 standard deviations to make it relatively unlikely that we'll need
+    # more than one iteration.
     k <- ceiling((samples - n) / p.th)
     k <- ceiling(k + 3*sqrt(k*p.th*(1-p.th)))
     # Generate lambda values for samples by sampling from the PCR distribution
@@ -47,7 +58,7 @@ rgwpcrpois <- function(samples, efficiency, lambda0, threshold=1, molecules=1, c
               efficiency=as.double(efficiency),
               lambda0=as.double(lambda0),
               molecules=as.double(molecules),
-              cycles=cycles,
+              ncycles=as.integer(cycles),
               NAOK=TRUE)$samples
     # Remove samples below threshold, and determine how many to use
     s.c <- s.c[s.c >= threshold]
