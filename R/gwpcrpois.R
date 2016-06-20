@@ -16,7 +16,7 @@
 NULL
 
 #' @rdname gwpcrpois
-#' @useDynLib gwpcR gwpcrpois_simulate
+#' @useDynLib gwpcR gwpcrpois_simulate_c
 #' @export
 rgwpcrpois <- function(samples, efficiency, lambda0, threshold=1, molecules=1, cycles=NA) {
   if (!is.numeric(efficiency) || (length(efficiency) != 1) || (efficiency <= 0) || (efficiency > 1))
@@ -52,7 +52,7 @@ rgwpcrpois <- function(samples, efficiency, lambda0, threshold=1, molecules=1, c
     k <- ceiling((samples - n) / p.th)
     k <- ceiling(k + 3*sqrt(k*p.th*(1-p.th)))
     # Generate lambda values for samples by sampling from the PCR distribution
-    s.c <- .C(gwpcrpois_simulate,
+    s.c <- .C(gwpcrpois_simulate_c,
               nsamples=as.integer(k),
               samples=double(k),
               efficiency=as.double(efficiency),
@@ -80,10 +80,19 @@ dgwpcrpois <- function(c, efficiency, lambda0, threshold=1, molecules=1) {
   handle.parameters(list(c=c, efficiency=efficiency, lambda0=lambda0,
                          threshold=threshold, molecules=molecules),
                     by=c('efficiency', 'lambda0', 'threshold', 'molecules'), {
+                      # To ensure reasonable accuracy, we want the effective lambda
+                      # grid we use to compute the mixture (i.e. AFTER scaling with lambda0)
+                      # to be much finer than the variance of (most) of the poissons we mix.
+                      # We thus demand that:
+                      #    lambda0 * width <= (1/10) * Sqrt(lambda0),
+                      # i.e. that
+                      #    width <= 1 / ( 10 * Sqrt(lambda0) )
+                      grid.width <- 1 / (10 * sqrt(lambda0))
+
                       # Compute P[X < Th]
                       p <- if (threshold >= 1)
                         gwpcr.mixture(threshold-1, function(x,l) { stats::ppois(x,l*lambda0) },
-                                      efficiency=efficiency, molecules=molecules)
+                                      efficiency=efficiency, molecules=molecules, grid.width=grid.width)
                       else
                         0
                       # Compute probabilities for those X which are >= TH
@@ -91,7 +100,7 @@ dgwpcrpois <- function(c, efficiency, lambda0, threshold=1, molecules=1) {
                       d <- rep(0, length(c))
                       if (sum(c.v) > 0)
                         d[c.v] <- gwpcr.mixture(c[c.v], function(x,l) { stats::dpois(x,l*lambda0) },
-                                                efficiency=efficiency, molecules=molecules)
+                                                efficiency=efficiency, molecules=molecules, grid.width=grid.width)
                       # And compute P(X = c | X >= Th)
                       d / (1.0 - p)
                     })
@@ -100,13 +109,22 @@ dgwpcrpois <- function(c, efficiency, lambda0, threshold=1, molecules=1) {
 #' @rdname gwpcrpois
 #' @export
 pgwpcrpois <- function(c, efficiency, lambda0, threshold=1, molecules=1) {
-    handle.parameters(list(c=c, efficiency=efficiency, lambda0=lambda0,
+  handle.parameters(list(c=c, efficiency=efficiency, lambda0=lambda0,
                          threshold=threshold, molecules=molecules),
                     by=c('efficiency', 'lambda0', 'threshold', 'molecules'), {
+                      # To ensure reasonable accuracy, we want the effective lambda
+                      # grid we use to compute the mixture (i.e. AFTER scaling with lambda0)
+                      # to be much finer than the variance of (most) of the poissons we mix.
+                      # We thus demand that:
+                      #    lambda0 * width <= (1/10) * Sqrt(lambda0),
+                      # i.e. that
+                      #    width <= 1 / ( 10 * Sqrt(lambda0) )
+                      grid.width <- 1 / (10 * sqrt(lambda0))
+
                       # Compute P[X < Th]
                       p <- if (threshold > 0)
                         gwpcr.mixture(threshold-1, function(x,l) { stats::ppois(x,l*lambda0) },
-                                      efficiency=efficiency, molecules=molecules)
+                                      efficiency=efficiency, molecules=molecules, grid.width=grid.width)
                       else
                         0
                       # Compute probabilities for those X which are >= TH
@@ -114,7 +132,7 @@ pgwpcrpois <- function(c, efficiency, lambda0, threshold=1, molecules=1) {
                       d <- rep(0, length(c))
                       if (sum(c.v) > 0)
                         d[c.v] <- gwpcr.mixture(c[c.v], function(x,l) { stats::ppois(x,l*lambda0) },
-                                                efficiency=efficiency, molecules=molecules)
+                                                efficiency=efficiency, molecules=molecules, grid.width=grid.width)
                       # And compute P(X <= c | X >= Th)
                       (d - p) / (1.0 - p)
                     })

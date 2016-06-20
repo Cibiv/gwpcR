@@ -4,7 +4,7 @@
 
 static const int BATCH_MASK = (1 << 18) - 1;
 
-void gwpcr_simulate(int *nsamples_, double *samples, double *efficiency_, double* molecules_, int *ncycles_)
+void gwpcr_simulate_c(int *nsamples_, double *samples, double *efficiency_, double* molecules_, int *ncycles_)
 {
   GetRNGstate();
 
@@ -31,11 +31,11 @@ void gwpcr_simulate(int *nsamples_, double *samples, double *efficiency_, double
   PutRNGstate();
 }
 
-void gwpcrpois_simulate(int *nsamples_, double *samples, double *efficiency_, double *lambda0_, double* molecules_, int *ncycles_)
+void gwpcrpois_simulate_c(int *nsamples_, double *samples, double *efficiency_, double *lambda0_, double* molecules_, int *ncycles_)
 {
   GetRNGstate();
 
-  gwpcr_simulate(nsamples_, samples, efficiency_, molecules_, ncycles_);
+  gwpcr_simulate_c(nsamples_, samples, efficiency_, molecules_, ncycles_);
 
   const int nsamples = *nsamples_;
   const double lambda0 = *lambda0_;

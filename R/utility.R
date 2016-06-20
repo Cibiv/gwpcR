@@ -43,3 +43,6 @@ handle.parameters <- function(parameters, by, expr) {
   # Return result
   return(t$`__result__`)
 }
+
+#' @useDynLib gwpcR gwpcr_refine_c
+refine <- function(points, width) .Call(gwpcr_refine_c, points, width)
