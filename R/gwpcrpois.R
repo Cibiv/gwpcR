@@ -211,7 +211,7 @@ pgwpcrpois <- function(c, efficiency, lambda0, threshold=1, molecules=1) {
                         if (sum(c.v) > 0)
                           d[c.v] <- gwpcr.mixture(c[c.v], function(x,l) { stats::ppois(x,l*lambda0) },
                                                   efficiency=efficiency, molecules=molecules,
-                                                  grid.width.fun=grid.width.fun)
+                                                  grid.width.fun=grid.width.fun) - p
                         # And compute P(X = c | X >= Th) and scale appropriately,
                         # (in case we're within the gamma cutover range).
                         r <- r + (1 - gamma.factor(efficiency)) * d / (1.0 - p)
@@ -234,7 +234,7 @@ pgwpcrpois <- function(c, efficiency, lambda0, threshold=1, molecules=1) {
                         c.v <- (c >= threshold)
                         d <- rep(0, length(c))
                         if (sum(c.v) > 0)
-                          d[c.v] <- pnbinom(c[c.v], size=nb.size, prob=nb.prob)
+                          d[c.v] <- pnbinom(c[c.v], size=nb.size, prob=nb.prob) - p
                         # And compute P(X = c | X >= Th) and scale appropriately,
                         # (in case we're within the gamma cutover range).
                         r <- r + gamma.factor(efficiency) * d / (1.0 - p)
