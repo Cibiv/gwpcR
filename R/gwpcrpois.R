@@ -80,9 +80,26 @@ dgwpcrpois <- function(c, efficiency, lambda0, threshold=1, molecules=1) {
   handle.parameters(list(c=c, efficiency=efficiency, lambda0=lambda0,
                          threshold=threshold, molecules=molecules),
                     by=c('efficiency', 'lambda0', 'threshold', 'molecules'), {
-                      # XXX: If the efficiency <= 1e-2, use negative binomial approximation!
+                      r <- rep(as.numeric(NA), length(c))
 
-                      if (is.finite(lambda0) && (lambda0 > 0)) {
+                      r <- if (!is.finite(efficiency) || (efficiency < 0) || (efficiency > 1))
+                        rep(as.numeric(NA), length(c))
+                      else if (!is.finite(lambda0) || (lambda0 < 0))
+                        rep(as.numeric(NA), length(c))
+                      else if (!is.finite(molecules) || (molecules != floor(molecules)) || (molecules < 1))
+                        rep(as.numeric(NA), length(c))
+                      else if (!is.finite(threshold) || (threshold != floor(threshold)) || (threshold < 0))
+                        rep(as.numeric(NA), length(c))
+                      else if ((lambda0 == 0) && (threshold == 0))
+                        ifelse(c == 0, 1.0, 0.0)
+                      else if ((lambda0 == 0) && (threshold > 0))
+                        rep(as.numeric(NA), length(c))
+                      else
+                        rep(0.0, length(c))
+
+                      if ((lambda0 > 0) && (efficiency >= E.MIN)) {
+                        # Within precomputed lambda range
+                        #
                         # To ensure reasonable accuracy, we want the effective lambda
                         # grid we use to compute the mixture (i.e. AFTER scaling with lambda0)
                         # to be much finer than the variance of the poisson distribution.
@@ -110,13 +127,35 @@ dgwpcrpois <- function(c, efficiency, lambda0, threshold=1, molecules=1) {
                           d[c.v] <- gwpcr.mixture(c[c.v], function(x,l) { stats::dpois(x,l*lambda0) },
                                                   efficiency=efficiency, molecules=molecules,
                                                   grid.width.fun=grid.width.fun)
-                        # And compute P(X = c | X >= Th)
-                        d / (1.0 - p)
-                      } else if ((lambda0 == 0.0) && (threshold == 0)) {
-                        ifelse(c == 0, 1.0, 0.0)
-                      } else {
-                        rep(as.numeric(NA), length(c))
+                        # And compute P(X = c | X >= Th) and scale appropriately,
+                        # (in case we're within the gamma cutover range).
+                        r <- r + (1 - gamma.factor(efficiency)) * d / (1.0 - p)
                       }
+
+                      if ((lambda0 > 0) && (efficiency <= E.GAMMA.TH)) {
+                        # Within gamma approximation range
+                        #
+                        # Mixing Poissons with Gamma rates yields a Negative Binomial,
+                        # in our case the parameters are (see also gwpcr.sd()):
+                        nb.size <- 1/gwpcr.sd(efficiency, molecules)^2
+                        nb.prob <- nb.size / (nb.size + lambda0)
+
+                        # Compute P[X < Th]
+                        p <- if (threshold >= 1)
+                          pnbinom(threshold-1, size=nb.size, prob=nb.prob)
+                        else
+                          0
+                        # Compute probabilities for those X which are >= TH
+                        c.v <- (c >= threshold)
+                        d <- rep(0, length(c))
+                        if (sum(c.v) > 0)
+                          d[c.v] <- dnbinom(c[c.v], size=nb.size, prob=nb.prob)
+                        # And compute P(X = c | X >= Th) and scale appropriately,
+                        # (in case we're within the gamma cutover range).
+                        r <- r + gamma.factor(efficiency) * d / (1.0 - p)
+                      }
+
+                      r
                     })
 }
 
@@ -126,9 +165,26 @@ pgwpcrpois <- function(c, efficiency, lambda0, threshold=1, molecules=1) {
   handle.parameters(list(c=c, efficiency=efficiency, lambda0=lambda0,
                          threshold=threshold, molecules=molecules),
                     by=c('efficiency', 'lambda0', 'threshold', 'molecules'), {
-                      # XXX: If the efficiency <= 1e-2, use negative binomial approximation!
+                      r <- rep(as.numeric(NA), length(c))
 
-                      if (is.finite(lambda0) && (lambda0 > 0)) {
+                      r <- if (!is.finite(efficiency) || (efficiency < 0) || (efficiency > 1))
+                        rep(as.numeric(NA), length(c))
+                      else if (!is.finite(lambda0) || (lambda0 < 0))
+                        rep(as.numeric(NA), length(c))
+                      else if (!is.finite(molecules) || (molecules != floor(molecules)) || (molecules < 1))
+                        rep(as.numeric(NA), length(c))
+                      else if (!is.finite(threshold) || (threshold != floor(threshold)) || (threshold < 0))
+                        rep(as.numeric(NA), length(c))
+                      else if ((lambda0 == 0) && (threshold == 0))
+                        ifelse(c >= 0, 1.0, 0.0)
+                      else if ((lambda0 == 0) && (threshold > 0))
+                        rep(as.numeric(NA), length(c))
+                      else
+                        rep(0.0, length(c))
+
+                      if ((lambda0 > 0) && (efficiency >= E.MIN)) {
+                        # Within precomputed lambda range
+                        #
                         # To ensure reasonable accuracy, we want the effective lambda
                         # grid we use to compute the mixture (i.e. AFTER scaling with lambda0)
                         # to be much finer than the variance of the poisson distribution.
@@ -143,7 +199,7 @@ pgwpcrpois <- function(c, efficiency, lambda0, threshold=1, molecules=1) {
                                                                1 / (10 * lambda0)) }
 
                         # Compute P[X < Th]
-                        p <- if (threshold > 0)
+                        p <- if (threshold >= 1)
                           gwpcr.mixture(threshold-1, function(x,l) { stats::ppois(x,l*lambda0) },
                                         efficiency=efficiency, molecules=molecules,
                                         grid.width.fun=grid.width.fun)
@@ -156,12 +212,34 @@ pgwpcrpois <- function(c, efficiency, lambda0, threshold=1, molecules=1) {
                           d[c.v] <- gwpcr.mixture(c[c.v], function(x,l) { stats::ppois(x,l*lambda0) },
                                                   efficiency=efficiency, molecules=molecules,
                                                   grid.width.fun=grid.width.fun)
-                        # And compute P(X <= c | X >= Th)
-                        (d - p) / (1.0 - p)
-                      } else if ((lambda0 == 0.0) && (threshold == 0)) {
-                        ifelse(c == 0, 1.0, 0.0)
-                      } else {
-                        rep(as.numeric(NA), length(c))
+                        # And compute P(X = c | X >= Th) and scale appropriately,
+                        # (in case we're within the gamma cutover range).
+                        r <- r + (1 - gamma.factor(efficiency)) * d / (1.0 - p)
                       }
+
+                      if ((lambda0 > 0) && (efficiency <= E.GAMMA.TH)) {
+                        # Within gamma approximation range
+                        #
+                        # Mixing Poissons with Gamma rates yields a Negative Binomial,
+                        # in our case the parameters are (see also gwpcr.sd()):
+                        nb.size <- 1/gwpcr.sd(efficiency, molecules)^2
+                        nb.prob <- nb.size / (nb.size + lambda0)
+
+                        # Compute P[X < Th]
+                        p <- if (threshold >= 1)
+                          pnbinom(threshold-1, size=nb.size, prob=nb.prob)
+                        else
+                          0
+                        # Compute probabilities for those X which are >= TH
+                        c.v <- (c >= threshold)
+                        d <- rep(0, length(c))
+                        if (sum(c.v) > 0)
+                          d[c.v] <- pnbinom(c[c.v], size=nb.size, prob=nb.prob)
+                        # And compute P(X = c | X >= Th) and scale appropriately,
+                        # (in case we're within the gamma cutover range).
+                        r <- r + gamma.factor(efficiency) * d / (1.0 - p)
+                      }
+
+                      r
                     })
 }

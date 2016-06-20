@@ -46,3 +46,14 @@ handle.parameters <- function(parameters, by, expr) {
 
 #' @useDynLib gwpcR gwpcr_refine_c
 refine <- function(points, width) .Call(gwpcr_refine_c, points, width)
+
+E.GAMMA.TH <- 1e-1
+
+delayedAssign('E.MIN', head(GWPCR$efficiency, 1))
+
+delayedAssign('E.MAX', tail(GWPCR$efficiency, 1))
+
+gamma.factor <- function(efficiency) {
+  c <- pmin(pmax(0, (efficiency - E.MIN)/(E.GAMMA.TH - E.MIN)), 1)
+  f <- ifelse(c <= 0.5, 1 - 2*c^2, 2*(1 - c)^2)
+}

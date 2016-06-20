@@ -69,32 +69,42 @@ dgwpcr <- function(lambda, efficiency, molecules=1) {
       # whether the density is interpolated, or approximated using a gamma dist.
       e <- efficiency
       l <- lambda
-      p.e.i <- (e >= head(GWPCR$efficiency, 1)) & (e <= tail(GWPCR$efficiency, 1))
-      p.e.g <- (e >= 0) & (e < head(GWPCR$efficiency, 1))
+      p.e.i <- (e > E.MIN) & (e <= E.MAX)
+      p.e.g <- (e >= 0) & (e < 1e-1)
       p.l.v <- (l >= 0) & (l <= tail(GWPCR$lambda, 1))
       p.i <- p.e.i & p.l.v
       p.g <- p.e.g & p.l.v
 
+      # Prepare result vector.
+      d <- rep(as.numeric(NA), length(e))
+      d[p.i | p.g] <- 0
+
+      # In the cut-over region between precomputed and gamma density, determine
+      # weight factor f for gamma density.
+      f <- gamma.factor(e)
+      stopifnot(all(f[p.e.i] < 1))
+      stopifnot(all(f[p.e.g] > 0))
+      stopifnot(all((0 <= f) & (f <= 1)))
+
       # Interpolate density at requested efficiencies and lambda values, but
       # only were those values lie within the data matrix's range (i.e., no
       # extrapolation!)
-      d <- rep(as.numeric(NA), length(e))
       if (sum(p.i) > 0)
-        d[p.i] <- density.interpolate(x0=e[p.i], y0=l[p.i], m=molecules)
+        d[p.i] <- d[p.i] + (1 - f[p.i]) * density.interpolate(x0=e[p.i], y0=l[p.i], m=molecules)
+
       # Use gamma for efficiencies below the smallest precomputed efficiency
       # The gamma parameters are chosen to produce a distribution with mean 1 and
       #               1 - E     1
       #   Var( L ) = ------- * ---,
       #               1 + E     m
       # which matches the variance of the true distribution (see gwpcr.sd).
-      # XXX: Do this differently! Gradually switch over to gamma once we
-      # leave GWPCR$data's range. Remove the pre-computed gamma densities,
-      # since they don't work - the grid is not fine enough at zero!
       g.par <- molecules * (1+e[p.g]) / (1-e[p.g])
       if (length(g.par) > 0)
-        d[p.g] <- dgamma(l[p.g], shape=g.par, rate=g.par)
+        d[p.g] <- d[p.g] + f[p.g] * dgamma(l[p.g], shape=g.par, rate=g.par)
+
       # And set density to zero if lambda is outside the data matrix's range.
       d[(p.e.i | p.e.g) & !p.l.v] <- 0
+
       # Result
       d
     } else
