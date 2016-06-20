@@ -206,11 +206,12 @@ gwpcr.mixture <- function(x, FUN, efficiency, molecules=1, grid.width.fun = func
   if (!is.function(grid.width.fun))
     stop("grid.width.fun must be a function with signature grid.width.fun(lambda)")
 
-  # Deal with out-of-range efficiency values
+  # "Round" efficiencies either down to the maximal simulated efficiency, or up to 1,
+  # depending on which is closer.
   efficiency <- if ((efficiency < 0) || (efficiency > 1.0))
     NA
   else if (efficiency <= 0.5 + 0.5*tail(GWPCR$efficiency, 1))
-    pmin(pmax(head(GWPCR$efficiency, 1), efficiency), tail(GWPCR$efficiency, 1))
+    pmin(efficiency, tail(GWPCR$efficiency, 1))
   else
     1.0
 
