@@ -87,6 +87,9 @@ dgwpcr <- function(lambda, efficiency, molecules=1) {
       #   Var( L ) = ------- * ---,
       #               1 + E     m
       # which matches the variance of the true distribution (see gwpcr.sd).
+      # XXX: Do this differently! Gradually switch over to gamma once we
+      # leave GWPCR$data's range. Remove the pre-computed gamma densities,
+      # since they don't work - the grid is not fine enough at zero!
       g.par <- molecules * (1+e[p.g]) / (1-e[p.g])
       if (length(g.par) > 0)
         d[p.g] <- dgamma(l[p.g], shape=g.par, rate=g.par)

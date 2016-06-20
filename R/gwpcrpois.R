@@ -80,6 +80,8 @@ dgwpcrpois <- function(c, efficiency, lambda0, threshold=1, molecules=1) {
   handle.parameters(list(c=c, efficiency=efficiency, lambda0=lambda0,
                          threshold=threshold, molecules=molecules),
                     by=c('efficiency', 'lambda0', 'threshold', 'molecules'), {
+                      # XXX: If the efficiency <= 1e-2, use negative binomial approximation!
+
                       if (is.finite(lambda0) && (lambda0 > 0)) {
                         # To ensure reasonable accuracy, we want the effective lambda
                         # grid we use to compute the mixture (i.e. AFTER scaling with lambda0)
@@ -124,6 +126,8 @@ pgwpcrpois <- function(c, efficiency, lambda0, threshold=1, molecules=1) {
   handle.parameters(list(c=c, efficiency=efficiency, lambda0=lambda0,
                          threshold=threshold, molecules=molecules),
                     by=c('efficiency', 'lambda0', 'threshold', 'molecules'), {
+                      # XXX: If the efficiency <= 1e-2, use negative binomial approximation!
+
                       if (is.finite(lambda0) && (lambda0 > 0)) {
                         # To ensure reasonable accuracy, we want the effective lambda
                         # grid we use to compute the mixture (i.e. AFTER scaling with lambda0)
