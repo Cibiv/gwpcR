@@ -2,16 +2,19 @@
 #include <Rinternals.h>
 
 SEXP gwpcr_refine_c(SEXP points_, SEXP width_) {
+  /* Check parameters */
   const int npoints = length(points_);
-  if (length(points_) < 2)
+  if (npoints < 2)
     error("need at least two points");
   const double* points = REAL(points_);
-  if (length(width_) != 1)
-    error("width must be scalar");
-  const double width = REAL(width_)[0];
-  if (!R_FINITE(width) || (width <= 0))
-    error("width must be positive and finite");
+  const int nwidths = length(width_);
+  if (nwidths < 1)
+    error("need at least one width");
+  const double* widths = REAL(width_);
 
+  /* Compute for each pair p_i, p_{i+1} the number of intermediate points
+   * n_i and their distance w_i, and store these in vectors ns and ws.
+   */
   SEXP ns_ = PROTECT(allocVector(REALSXP, npoints-1));
   double* const ns = REAL(ns_);
   SEXP ws_ = PROTECT(allocVector(REALSXP, npoints-1));
@@ -24,13 +27,29 @@ SEXP gwpcr_refine_c(SEXP points_, SEXP width_) {
       UNPROTECT(2);
       error("points must be strictly increasing");
     }
-    const double n = ceil(d / width);
-    const double w = d / n;
-    ns[i] = n;
-    ws[i] = w;
-    nrefined += n;
+
+    const double width = widths[i % nwidths];
+    if (width == R_PosInf) {
+      ns[i] = 1;
+      ws[i] = d;
+    }
+    else {
+      if (!(width > 0))
+        error("widths must be positive");
+
+      const double n = ceil(d / width);
+      const double w = d / n;
+      ns[i] = n;
+      ws[i] = w;
+    }
+
+    nrefined += ns[i];
   }
 
+  /* Compute refined grid (refined), and the associated weights, i.e.
+   * the lengths of centered intervals around each point in the refined
+   * grid. At the edges, the intervals are one-sided instead of centered.
+   */
   SEXP refined_ = PROTECT(allocVector(REALSXP, nrefined));
   double* const refined = REAL(refined_);
   SEXP weights_ = PROTECT(allocVector(REALSXP, nrefined));
@@ -44,21 +63,29 @@ SEXP gwpcr_refine_c(SEXP points_, SEXP width_) {
         weights[j-1] = (refined[j] - refined[j-2]) * 0.5;
     }
   }
+  /* The loop above never reaches the right edge point */
   refined[nrefined-1] = points[npoints-1];
-  weights[0] = (refined[1] - refined[0]) * 0.5;
+  /* and thus also fails to compute the weight of the last intermediate point */
   if (nrefined >= 3)
     weights[nrefined-2] = (refined[nrefined-1] - refined[nrefined-3]) * 0.5;
+  /* The weights of the edge points are computed differently, since the
+   * intervals are one-sided there.
+   */
+  weights[0] = (refined[1] - refined[0]) * 0.5;
   weights[nrefined-1] = (refined[nrefined-1] - refined[nrefined-2]) * 0.5;
 
+  /* Create result list and add refined points and weights */
   SEXP result_ = PROTECT(allocVector(VECSXP, 2));
   SET_VECTOR_ELT(result_, 0, refined_);
   SET_VECTOR_ELT(result_, 1, weights_);
 
+  /* Set names of result list elements */
   SEXP result_names_ = PROTECT(allocVector(STRSXP, 2));
   SET_STRING_ELT(result_names_, 0, mkChar("points"));
   SET_STRING_ELT(result_names_, 1, mkChar("weights"));
   setAttrib(result_, R_NamesSymbol, result_names_);
 
+  /* Result (1), its names (1), its elements (2), and temporaries ws and ns (2) */
   UNPROTECT(6);
 
   return result_;

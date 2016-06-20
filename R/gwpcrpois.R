@@ -80,29 +80,41 @@ dgwpcrpois <- function(c, efficiency, lambda0, threshold=1, molecules=1) {
   handle.parameters(list(c=c, efficiency=efficiency, lambda0=lambda0,
                          threshold=threshold, molecules=molecules),
                     by=c('efficiency', 'lambda0', 'threshold', 'molecules'), {
-                      # To ensure reasonable accuracy, we want the effective lambda
-                      # grid we use to compute the mixture (i.e. AFTER scaling with lambda0)
-                      # to be much finer than the variance of (most) of the poissons we mix.
-                      # We thus demand that:
-                      #    lambda0 * width <= (1/10) * Sqrt(lambda0),
-                      # i.e. that
-                      #    width <= 1 / ( 10 * Sqrt(lambda0) )
-                      grid.width <- 1 / (10 * sqrt(lambda0))
+                      if (is.finite(lambda0) && (lambda0 > 0)) {
+                        # To ensure reasonable accuracy, we want the effective lambda
+                        # grid we use to compute the mixture (i.e. AFTER scaling with lambda0)
+                        # to be much finer than the variance of the poisson distribution.
+                        # We thus demand that:
+                        #    lambda0 * width <= (1/10) * Sqrt(l * lambda0),
+                        # i.e. that
+                        #    width <= Sqrt(l / lambda0) / 10
+                        # At l=0, we instead chose width such that we get 10 samples of l*lambda0
+                        # within [0, 1].
+                        grid.width.fun <- function(l) { ifelse(l > 0,
+                                                               sqrt(l / lambda0) / 10,
+                                                               1 / (10 * lambda0)) }
 
-                      # Compute P[X < Th]
-                      p <- if (threshold >= 1)
-                        gwpcr.mixture(threshold-1, function(x,l) { stats::ppois(x,l*lambda0) },
-                                      efficiency=efficiency, molecules=molecules, grid.width=grid.width)
-                      else
-                        0
-                      # Compute probabilities for those X which are >= TH
-                      c.v <- (c >= threshold)
-                      d <- rep(0, length(c))
-                      if (sum(c.v) > 0)
-                        d[c.v] <- gwpcr.mixture(c[c.v], function(x,l) { stats::dpois(x,l*lambda0) },
-                                                efficiency=efficiency, molecules=molecules, grid.width=grid.width)
-                      # And compute P(X = c | X >= Th)
-                      d / (1.0 - p)
+                        # Compute P[X < Th]
+                        p <- if (threshold >= 1)
+                          gwpcr.mixture(threshold-1, function(x,l) { stats::ppois(x,l*lambda0) },
+                                        efficiency=efficiency, molecules=molecules,
+                                        grid.width.fun=grid.width.fun)
+                        else
+                          0
+                        # Compute probabilities for those X which are >= TH
+                        c.v <- (c >= threshold)
+                        d <- rep(0, length(c))
+                        if (sum(c.v) > 0)
+                          d[c.v] <- gwpcr.mixture(c[c.v], function(x,l) { stats::dpois(x,l*lambda0) },
+                                                  efficiency=efficiency, molecules=molecules,
+                                                  grid.width.fun=grid.width.fun)
+                        # And compute P(X = c | X >= Th)
+                        d / (1.0 - p)
+                      } else if ((lambda0 == 0.0) && (threshold == 0)) {
+                        ifelse(c == 0, 1.0, 0.0)
+                      } else {
+                        rep(as.numeric(NA), length(c))
+                      }
                     })
 }
 
@@ -112,28 +124,40 @@ pgwpcrpois <- function(c, efficiency, lambda0, threshold=1, molecules=1) {
   handle.parameters(list(c=c, efficiency=efficiency, lambda0=lambda0,
                          threshold=threshold, molecules=molecules),
                     by=c('efficiency', 'lambda0', 'threshold', 'molecules'), {
-                      # To ensure reasonable accuracy, we want the effective lambda
-                      # grid we use to compute the mixture (i.e. AFTER scaling with lambda0)
-                      # to be much finer than the variance of (most) of the poissons we mix.
-                      # We thus demand that:
-                      #    lambda0 * width <= (1/10) * Sqrt(lambda0),
-                      # i.e. that
-                      #    width <= 1 / ( 10 * Sqrt(lambda0) )
-                      grid.width <- 1 / (10 * sqrt(lambda0))
+                      if (is.finite(lambda0) && (lambda0 > 0)) {
+                        # To ensure reasonable accuracy, we want the effective lambda
+                        # grid we use to compute the mixture (i.e. AFTER scaling with lambda0)
+                        # to be much finer than the variance of the poisson distribution.
+                        # We thus demand that:
+                        #    lambda0 * width <= (1/10) * Sqrt(l * lambda0),
+                        # i.e. that
+                        #    width <= Sqrt(l / lambda0) / 10
+                        # At l=0, we instead chose width such that we get 10 samples of l*lambda0
+                        # within [0, 1].
+                        grid.width.fun <- function(l) { ifelse(l > 0,
+                                                               sqrt(l / lambda0) / 10,
+                                                               1 / (10 * lambda0)) }
 
-                      # Compute P[X < Th]
-                      p <- if (threshold > 0)
-                        gwpcr.mixture(threshold-1, function(x,l) { stats::ppois(x,l*lambda0) },
-                                      efficiency=efficiency, molecules=molecules, grid.width=grid.width)
-                      else
-                        0
-                      # Compute probabilities for those X which are >= TH
-                      c.v <- (c >= threshold)
-                      d <- rep(0, length(c))
-                      if (sum(c.v) > 0)
-                        d[c.v] <- gwpcr.mixture(c[c.v], function(x,l) { stats::ppois(x,l*lambda0) },
-                                                efficiency=efficiency, molecules=molecules, grid.width=grid.width)
-                      # And compute P(X <= c | X >= Th)
-                      (d - p) / (1.0 - p)
+                        # Compute P[X < Th]
+                        p <- if (threshold > 0)
+                          gwpcr.mixture(threshold-1, function(x,l) { stats::ppois(x,l*lambda0) },
+                                        efficiency=efficiency, molecules=molecules,
+                                        grid.width.fun=grid.width.fun)
+                        else
+                          0
+                        # Compute probabilities for those X which are >= TH
+                        c.v <- (c >= threshold)
+                        d <- rep(0, length(c))
+                        if (sum(c.v) > 0)
+                          d[c.v] <- gwpcr.mixture(c[c.v], function(x,l) { stats::ppois(x,l*lambda0) },
+                                                  efficiency=efficiency, molecules=molecules,
+                                                  grid.width.fun=grid.width.fun)
+                        # And compute P(X <= c | X >= Th)
+                        (d - p) / (1.0 - p)
+                      } else if ((lambda0 == 0.0) && (threshold == 0)) {
+                        ifelse(c == 0, 1.0, 0.0)
+                      } else {
+                        rep(as.numeric(NA), length(c))
+                      }
                     })
 }

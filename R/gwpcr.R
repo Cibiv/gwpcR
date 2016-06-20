@@ -196,15 +196,15 @@ gwpcr.sd.inv <- function(sd, molecules=1) {
 }
 
 #' @export
-gwpcr.mixture <- function(x, FUN, efficiency, molecules=1, grid.width = as.numeric(NA)) {
+gwpcr.mixture <- function(x, FUN, efficiency, molecules=1, grid.width.fun = function(x) { Inf }) {
   if (!is.function(FUN))
     stop("FUN must be a function with signature FUN(x, lambda)")
   if (!is.numeric(efficiency) || (length(efficiency) != 1) || (efficiency < 0) || (efficiency > 1))
     stop('efficiency must be a numeric scalar within [0, 1]')
   if (!is.numeric(molecules) || (length(molecules) != 1) || (molecules != floor(molecules)) || (molecules < 1))
     stop('molecules must be a positive integral scalar')
-  if (!is.numeric(grid.width) || (length(grid.width) != 1) || (!is.na(grid.width) && ((grid.width <= 0) || !is.finite(grid.width))))
-    stop('grid.width must be a numeric scalar within (0, Inf) or NA')
+  if (!is.function(grid.width.fun))
+    stop("grid.width.fun must be a function with signature grid.width.fun(lambda)")
 
   # Deal with out-of-range efficiency values
   efficiency <- if ((efficiency < 0) || (efficiency > 1.0))
@@ -217,15 +217,12 @@ gwpcr.mixture <- function(x, FUN, efficiency, molecules=1, grid.width = as.numer
   if (is.na(efficiency))
     rep(as.numeric(NA), length(x))
   else if (efficiency < 1.0) {
-    #
-    if (!is.na(grid.width)) {
-      r <- refine(GWPCR$lambda, grid.width)
-      l <- r$points
-      l.w <- r$weights
-    } else {
-      l <- GWPCR$lambda
-      l.w <- GWPCR$lambda.weights
-    }
+    # Refine the lambda grid to ensure that the grid width is at least
+    # grid.scale times the standard deviation, at all values of lambda we
+    # integrate over.
+    r <- refine(GWPCR$lambda, grid.width.fun(GWPCR$lambda))
+    l <- r$points
+    l.w <- r$weights
 
     # Get probabilities for lambda lying within the intervals defined by
     # GWPCR$lambda.midpoints by multiplying the densities at the points lambda
