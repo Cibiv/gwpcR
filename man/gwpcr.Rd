@@ -11,24 +11,28 @@
 \usage{
 rgwpcr(n, efficiency, molecules = 1, cycles = NA)
 
-dgwpcr(lambda, efficiency, molecules = 1)
+dgwpcr(l, efficiency, molecules = 1)
 
 dgwpcr.fun(efficiency, molecules = 1)
 
 pgwpcr.fun(efficiency, molecules = 1)
 
-pgwpcr(lambda, efficiency, molecules = 1)
+pgwpcr(l, efficiency, molecules = 1)
 }
 \arguments{
-\item{n}{}
+\item{n}{number of random samples to generate}
 
-\item{efficiency}{}
+\item{efficiency}{efficiency of amplification}
 
-\item{molecules}{}
+\item{molecules}{initial copy number}
 
-\item{lambda}{}
+\item{cycles}{number of amplification cycles used for simulation. By default,
+a large enough value is used to make the results virtually
+idistinguishable from the limit for \eqn{cycles \to \infty}}
+
+\item{l}{molecular family size relative to the average}
 }
 \description{
-Test
+Write Me
 }
 

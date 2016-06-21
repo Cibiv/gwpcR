@@ -1,3 +1,22 @@
+#' Method-of-Moments Parameter Estimation for PCR-Poisson Mixture
+#'
+#' Estimates the parameters \code{efficiency} and \code{lambda0} from the
+#' observed mean and variance. Supports estimation using a censored (conditional)
+#' distribution, i.e. the case where a molecular family is only considered
+#' to be observed if it is observed at least \code{threshold} number of times.
+#'
+#' @inheritParams gwpcrpois
+#'
+#' @param mean average number of observations per molecular family
+#'             \strong{computed over the actually observed famililies}, i.e.
+#'             over those families which were observed at least \code{threshold}
+#'             times.
+#'
+#' @param var standard deviations of number of observations per molecular
+#'            family, also \strong{computed over the actually observed famililies}, i.e.
+#'             over those families which were observed at least \code{threshold}
+#'             times.
+#'
 #' @export
 gwpcrpois.mom <- function(mean, var, threshold=1, molecules=1) {
   if (!is.numeric(mean) || (length(mean) != 1) || (mean <= 0) || (mean >= Inf))
@@ -89,6 +108,10 @@ gwpcrpois.mom <- function(mean, var, threshold=1, molecules=1) {
               threshold=threshold, molecules=molecules))
 }
 
+#' Maximum-Likelihood Parameter Estimation for PCR-Poisson Mixture
+#'
+#' @inheritParams gwpcrpois
+#'
 #' @export
 gwpcrpois.mle <- function(c, threshold=1, molecules=1) {
   # Since evaluating the PCR-Poisson mixture is slow, we optimize by evaluating it only

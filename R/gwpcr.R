@@ -1,14 +1,18 @@
-#' @title PCR Product Distribution induced by a Binomial Galton-Watson Process
+#' PCR Product Distribution induced by a Binomial Galton-Watson Process
 #'
-#' @description Test
+#' Write Me
 #'
-#' @param n
+#' @param n number of random samples to generate
 #'
-#' @param lambda
+#' @param l molecular family size relative to the average
 #'
-#' @param efficiency
+#' @param efficiency efficiency of amplification
 #'
-#' @param molecules
+#' @param molecules initial copy number
+#'
+#' @param cycles number of amplification cycles used for simulation. By default,
+#'               a large enough value is used to make the results virtually
+#'               idistinguishable from the limit for \eqn{cycles \to \infty}
 #'
 #' @name gwpcr
 NULL
@@ -58,9 +62,9 @@ rgwpcr <- function(n, efficiency, molecules=1, cycles=NA) {
 
 #' @rdname gwpcr
 #' @export
-dgwpcr <- function(lambda, efficiency, molecules=1) {
+dgwpcr <- function(l, efficiency, molecules=1) {
   # Process each number of molecules separately
-  handle.parameters(list(lambda=lambda, efficiency=efficiency, molecules=molecules), by="molecules", {
+  handle.parameters(list(l=l, efficiency=efficiency, molecules=molecules), by="molecules", {
     # Moleculec ount must be >= 1 and integral
     if (is.finite(molecules) && (molecules == floor(molecules)) && (molecules > 0)) {
       # Determine molecule count filter (p.m), efficiency and lambda vectors
@@ -68,7 +72,6 @@ dgwpcr <- function(lambda, efficiency, molecules=1) {
       # (p.i, p.g). *.i and *.g stand for "interpolate" and "gamma", and select
       # whether the density is interpolated, or approximated using a gamma dist.
       e <- efficiency
-      l <- lambda
       p.e.i <- (e > E.MIN) & (e <= E.MAX)
       p.e.g <- (e >= 0) & (e < 1e-1)
       p.l.v <- (l >= 0) & (l <= tail(GWPCR$lambda, 1))
@@ -186,7 +189,7 @@ pgwpcr.fun <- function(efficiency, molecules=1) {
   cdf.g <- if (efficiency < E.GAMMA.TH) {
     # Gamma approximation of the true CDF, starts being reasonable below E,GAMMA.TH
     g.par <- molecules * (1+efficiency) / (1-efficiency)
-     function(l) {
+    function(l) {
       pgamma(l, shape=g.par, rate=g.par)
     }
   } else {
@@ -212,15 +215,29 @@ pgwpcr.fun <- function(efficiency, molecules=1) {
 
 #' @rdname gwpcr
 #' @export
-pgwpcr <- function(lambda, efficiency, molecules=1){
+pgwpcr <- function(l, efficiency, molecules=1){
   # Process each combination of efficiency and molecule count separately
-  handle.parameters(list(lambda=lambda, efficiency=efficiency, molecules=molecules), by=c("efficiency", "molecules"), {
-    tryCatch({ pgwpcr.fun(efficiency=efficiency, molecules=molecules)(lambda) },
-             error=function(e) { rep(as.numeric(NA), length(lambda)) })
+  handle.parameters(list(l=l, efficiency=efficiency, molecules=molecules), by=c("efficiency", "molecules"), {
+    tryCatch({ pgwpcr.fun(efficiency=efficiency, molecules=molecules)(l) },
+             error=function(e) { rep(as.numeric(NA), length(l)) })
   })
 }
 
-#' @title  PCR Product Distribution Standard Deviation
+#' PCR Product Distribution Standard Deviation
+#'
+#' For efficiency \eqn{E} and initial number of molecules \eqn{n}, the
+#' PCR product distribution has \emph{variance} (not standard deviation!)
+#' \eqn{\frac{1-E}{1+E}\cdot\frac{1}{m}}{(1+E) / ((1-E) * m)}.
+#'
+#' Function \code{gwpcr.sd} uses this to compute the standard deviation
+#' (i.e. the square of the above) for a given efficiency and initial
+#' copy number, and \code{gwpcr.sd.inv} does the reverse and computes
+#' the efficiency given standard deviation and copy number.
+#'
+#' @inheritParams gwpcr
+#'
+#' @param sd Standard deviation of the PCR product distribution
+#'
 #' @export
 gwpcr.sd <- function(efficiency, molecules=1) {
   if (!is.numeric(molecules) || (length(molecules) != 1) || (molecules != floor(molecules)) || (molecules < 1))
@@ -258,6 +275,27 @@ gwpcr.sd.inv <- function(sd, molecules=1) {
   r
 }
 
+#' Mixtures of Distributions with PCR-distributed Weights
+#'
+#' Computes mixtures (i.e. convex linear combinations) of arbitrary
+#' functions with PCR-distributed weights, i.e.
+#' \deqn{\int_0^\infty F(x,\lambda) \cdot \textrm{dgwpcr}(\lambda) \,d\lambda}{Int F(x,\lambda) dgwpcr(\lambda) d\lambda over [0, Infinity)}
+#' \eqn{F} is usually the pdf or cdf of a probability distribution,
+#' in which case \code{gwpcr.mixture} computes the pdf (resp. cdf)
+#' of mixture of F's with PCR-distributed weights.
+#'
+#' @inheritParams gwpcr
+#'
+#' @param x value to evaluate the mixture at
+#'
+#' @param FUN function to mix
+#'
+#' @param grid.width.fun functions which returns the maximum grid size (i.e. distance
+#'                       between points) depending on \eqn{\lambda}. If the variance of
+#'                       \eqn{F} depends strongly on \eqn{\lambda}, this can be used
+#'                       to ensure that \eqn{F} is evaluated on finer grid for values
+#'                       of \eqn{lambda} where the variance is small.
+#'
 #' @export
 gwpcr.mixture <- function(x, FUN, efficiency, molecules=1, grid.width.fun = function(x) { Inf }) {
   if (!is.function(FUN))
@@ -293,7 +331,7 @@ gwpcr.mixture <- function(x, FUN, efficiency, molecules=1, grid.width.fun = func
     # by the interval lengths. Then set the probability to zero whereever it
     # is smaller than 1e-6 / <number of points> -- note that the the total
     # probability of intervals ignored that way is <= 1e-6.
-    w <- dgwpcr(lambda=l, efficiency=efficiency, molecules=molecules) * l.w
+    w <- dgwpcr(l, efficiency=efficiency, molecules=molecules) * l.w
     w[w <= (1e-6 / length(w))] <- 0.0
     w <- w / sum(w)
 

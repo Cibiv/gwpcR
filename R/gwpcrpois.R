@@ -1,14 +1,26 @@
 #' @title Poissonian Sampling Distribution of the PCR Product Distribution
 #'
-#' @description Test
+#' @description Write Me
 #'
-#' @param n
+#' @param n number of random samples to generate
 #'
-#' @param lambda
+#' @param c number of observations of a particular molecular family
 #'
-#' @param efficiency
+#' @param lambda0 average number of observations per molecular family
 #'
-#' @param molecules
+#' @param efficiency efficiency of amplification
+#'
+#' @param molecules initial copy number
+#'
+#' @param threshold minimal number of observations a molecular family must
+#'                  have to count as observed. Setting this to a value \eqn{v >= 0}
+#'                  \emph{conditions} the distribution on \eqn{c >= c}, i.e
+#'                  every value of \eqn{c} less than that gets assigned probability
+#'                  zero.
+#'
+#' @param cycles number of amplification cycles used for simulation. By default,
+#'               a large enough value is used to make the results virtually
+#'               idistinguishable from the limit for \eqn{cycles \to \infty}
 #'
 #' @name gwpcrpois
 #'
@@ -18,7 +30,7 @@ NULL
 #' @rdname gwpcrpois
 #' @useDynLib gwpcR gwpcrpois_simulate_c
 #' @export
-rgwpcrpois <- function(samples, efficiency, lambda0, threshold=1, molecules=1, cycles=NA) {
+rgwpcrpois <- function(n, efficiency, lambda0, threshold=1, molecules=1, cycles=NA) {
   if (!is.numeric(efficiency) || (length(efficiency) != 1) || (efficiency <= 0) || (efficiency > 1))
     stop('efficiency must be a numeric scalar within (0,1]')
   if (!is.numeric(lambda0) || (length(lambda0) != 1) || (lambda0 <= 0))
@@ -42,14 +54,14 @@ rgwpcrpois <- function(samples, efficiency, lambda0, threshold=1, molecules=1, c
     1.0
 
   # Sample until we have enough samples
-  n <- 0
-  r <- rep(as.integer(NA), samples)
-  while(n < samples) {
+  j <- 0
+  r <- rep(as.integer(NA), j)
+  while(j < n) {
     # Compute number of samples generate, taking the average acception rate p.th
     # into account, as well as the fluctuations around that rate, which are binomial.
     # We add 3 standard deviations to make it relatively unlikely that we'll need
     # more than one iteration.
-    k <- ceiling((samples - n) / p.th)
+    k <- ceiling((n - j) / p.th)
     k <- ceiling(k + 3*sqrt(k*p.th*(1-p.th)))
     # Generate lambda values for samples by sampling from the PCR distribution
     s.c <- .C(gwpcrpois_simulate_c,
@@ -64,11 +76,11 @@ rgwpcrpois <- function(samples, efficiency, lambda0, threshold=1, molecules=1, c
     s.c <- s.c[s.c >= threshold]
     if (length(s.c) == 0)
       next
-    c.n <- min(length(s.c), samples - n)
+    c <- min(length(s.c), n - j)
     # Append to output
-    stopifnot(c.n > 0)
-    r[(n+1):(n+c.n)] <- head(s.c, c.n)
-    n <- n + c.n
+    stopifnot(c > 0)
+    r[(j+1):(j+c)] <- head(s.c, c)
+    j <- j + c
   }
 
   r

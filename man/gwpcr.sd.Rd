@@ -9,4 +9,22 @@ gwpcr.sd(efficiency, molecules = 1)
 
 gwpcr.sd.inv(sd, molecules = 1)
 }
+\arguments{
+\item{efficiency}{efficiency of amplification}
+
+\item{molecules}{initial copy number}
+
+\item{sd}{Standard deviation of the PCR product distribution}
+}
+\description{
+For efficiency \eqn{E} and initial number of molecules \eqn{n}, the
+PCR product distribution has \emph{variance} (not standard deviation!)
+\eqn{\frac{1-E}{1+E}\cdot\frac{1}{m}}{(1+E) / ((1-E) * m)}.
+}
+\details{
+Function \code{gwpcr.sd} uses this to compute the standard deviation
+(i.e. the square of the above) for a given efficiency and initial
+copy number, and \code{gwpcr.sd.inv} does the reverse and computes
+the efficiency given standard deviation and copy number.
+}
 

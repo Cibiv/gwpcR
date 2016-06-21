@@ -7,7 +7,7 @@
 \alias{rgwpcrpois}
 \title{Poissonian Sampling Distribution of the PCR Product Distribution}
 \usage{
-rgwpcrpois(samples, efficiency, lambda0, threshold = 1, molecules = 1,
+rgwpcrpois(n, efficiency, lambda0, threshold = 1, molecules = 1,
   cycles = NA)
 
 dgwpcrpois(c, efficiency, lambda0, threshold = 1, molecules = 1)
@@ -15,16 +15,28 @@ dgwpcrpois(c, efficiency, lambda0, threshold = 1, molecules = 1)
 pgwpcrpois(c, efficiency, lambda0, threshold = 1, molecules = 1)
 }
 \arguments{
-\item{efficiency}{}
+\item{n}{number of random samples to generate}
 
-\item{molecules}{}
+\item{efficiency}{efficiency of amplification}
 
-\item{n}{}
+\item{lambda0}{average number of observations per molecular family}
 
-\item{lambda}{}
+\item{threshold}{minimal number of observations a molecular family must
+have to count as observed. Setting this to a value \eqn{v >= 0}
+\emph{conditions} the distribution on \eqn{c >= c}, i.e
+every value of \eqn{c} less than that gets assigned probability
+zero.}
+
+\item{molecules}{initial copy number}
+
+\item{cycles}{number of amplification cycles used for simulation. By default,
+a large enough value is used to make the results virtually
+idistinguishable from the limit for \eqn{cycles \to \infty}}
+
+\item{c}{number of observations of a particular molecular family}
 }
 \description{
-Test
+Write Me
 }
 \seealso{
 gwpcr
