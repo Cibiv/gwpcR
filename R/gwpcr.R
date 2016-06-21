@@ -138,26 +138,76 @@ pgwpcr.fun <- function(efficiency, molecules=1) {
   if (!is.numeric(molecules) || (length(molecules) != 1) || (molecules != floor(molecules)) || (molecules < 1))
     stop('molecules must be a positive integral scalar')
 
-  # Handle corner-cases
-  if (efficiency %in% c(0.0, 1.0))
-    return(function(lambda) { ifelse(lambda < 1.0, 0, 1) })
+  # "Round" efficiencies either down to the maximal simulated efficiency, or up to 1,
+  # depending on which is closer.
+  efficiency <- if ((efficiency < 0) || (efficiency > 1.0))
+    NA
+  else if (efficiency <= 0.5 + 0.5*tail(GWPCR$efficiency, 1))
+    pmin(efficiency, tail(GWPCR$efficiency, 1))
+  else
+    1.0
 
-  # Compute density at desired efficiency midpoints
-  d <- dgwpcr(lambda=GWPCR$lambda, efficiency=efficiency, molecules=molecules)
-  # Compute partial riemann sums up to interval endpoint
-  p.midpoints <- cumsum(d * GWPCR$lambda.weights)
-  p.midpoints <- p.midpoints / tail(p.midpoints, 1)
+  # In the cut-over region between precomputed and gamma density, determine
+  # weight factor f for gamma density.
+  f <- gamma.factor(efficiency)
 
-  # Use monotone interpolation to evaluate CDF at requested points.
-  if (any(is.na(p.midpoints)))
-    return(rep(as.numeric(NA), length(lambda)))
-  splinefun(c(2*head(GWPCR$lambda, 1) - GWPCR$lambda.midpoints[1],
-              head(GWPCR$lambda, 1),
-              GWPCR$lambda.midpoints,
-              tail(GWPCR$lambda, 1),
-              2*tail(GWPCR$lambda.midpoints, 1) - tail(GWPCR$lambda, 1)),
-            c(0, 0, p.midpoints, 1),
-            method='monoH.FC')
+  # CDF computed from pre-computed densities by numeric integration
+  cdf.i <- if ((efficiency > E.MIN) && (efficiency <= E.MAX)) {
+    # Determine integration knots and weights for integration on [0, 1]
+    gq <- statmod::gauss.quad(2, kind = "legendre")
+    q <- (1 + gq$nodes) / 2
+    w <- gq$weights / 2
+
+    # We integrate over each of the intervals between points, using
+    # (scaled versions of) the knots from above. The densities at
+    # the knots are determined by interpolation (see density.interpolate),
+    # and the value of the definitive integral at (original) point i
+    # is then determined by summing over the definitive integrals of
+    # the precending intervals. This yield the value of Int(0, l) for
+    # the points l from GWPCR$lambda.
+    x0 <- head(GWPCR$lambda, -1)
+    dx <- diff(GWPCR$lambda)
+    p <- matrix(NA, nrow=2, ncol=length(x0))
+    p[1,] <- x0 + dx * q[1]
+    p[2,] <- x0 + dx * q[2]
+    v <- density.interpolate(rep(efficiency, length(p)), as.vector(p), molecules)
+    dim(v) <- c(2, length(v)/2)
+    y <- cumsum(c(0, (v[1,] * w[1] + v[2,] * w[2]) * dx))
+    y <- y / tail(y, 1)
+
+    # Interpolate between the CDF at points monotonically.
+    splinefun(GWPCR$lambda, y, method="monoH.FC")
+  } else {
+    # Determine dummy function if outside of precomputed efficiency range
+    function(l) { rep(0, length(l)) }
+  }
+
+  # CDF computed from the gamma approximation
+  cdf.g <- if (efficiency < E.GAMMA.TH) {
+    # Gamma approximation of the true CDF, starts being reasonable below E,GAMMA.TH
+    g.par <- molecules * (1+efficiency) / (1-efficiency)
+     function(l) {
+      pgamma(l, shape=g.par, rate=g.par)
+    }
+  } else {
+    # Determine dummy function if outside of gamma-approximated range
+    function(l) { rep(0, length(l)) }
+  }
+
+  # Return a function approximating the CDF.
+  function(lambda) {
+    # Create result value and determine valid lambda values
+    r <- rep(NA, length(lambda))
+    p.v <- (lambda >= 0) & (lambda <= tail(GWPCR$lambda, 1))
+
+    # Compute results, use 0 resp. 1 outside the valid lambda range.
+    r[lambda < 0] <- 0
+    r[p.v] <- f * cdf.g(lambda[p.v]) + (1 - f) * cdf.i(lambda[p.v])
+    r[lambda > tail(GWPCR$lambda, 1)] <- 1
+
+    # Return result
+    r
+  }
 }
 
 #' @rdname gwpcr

@@ -7,7 +7,8 @@ Depends:
     R (>= 3.1.0)
 Imports:
     akima (>= 0.5-10),
-    data.table (>= 1.8.11)
+    data.table (>= 1.8.11),
+    statmod
 Author: Who wrote it
 Maintainer: Who to complain to <fgp@phlo.org>
 Description: More about what it does (maybe more than one line)
