@@ -73,7 +73,7 @@ dgwpcr <- function(l, efficiency, molecules=1) {
       # whether the density is interpolated, or approximated using a gamma dist.
       e <- efficiency
       p.e.i <- (e > E.MIN) & (e <= E.MAX)
-      p.e.g <- (e >= 0) & (e < 1e-1)
+      p.e.g <- (e >= 0) & (e < E.GAMMA.TH)
       p.l.v <- (l >= 0) & (l <= tail(GWPCR$lambda, 1))
       p.i <- p.e.i & p.l.v
       p.g <- p.e.g & p.l.v
@@ -145,8 +145,8 @@ pgwpcr.fun <- function(efficiency, molecules=1) {
   # depending on which is closer.
   efficiency <- if ((efficiency < 0) || (efficiency > 1.0))
     NA
-  else if (efficiency <= 0.5 + 0.5*tail(GWPCR$efficiency, 1))
-    pmin(efficiency, tail(GWPCR$efficiency, 1))
+  else if (efficiency <= 0.5 + 0.5*E.MAX)
+    pmin(efficiency, E.MAX)
   else
     1.0
 
@@ -311,8 +311,8 @@ gwpcr.mixture <- function(x, FUN, efficiency, molecules=1, grid.width.fun = func
   # depending on which is closer.
   efficiency <- if ((efficiency < 0) || (efficiency > 1.0))
     NA
-  else if (efficiency <= 0.5 + 0.5*tail(GWPCR$efficiency, 1))
-    pmin(efficiency, tail(GWPCR$efficiency, 1))
+  else if (efficiency <= 0.5 + 0.5*E.MAX)
+    pmin(efficiency, E.MAX)
   else
     1.0
 
