@@ -47,12 +47,21 @@ handle.parameters <- function(parameters, by, expr) {
 #' @useDynLib gwpcR gwpcr_refine_c
 refine <- function(points, width) .Call(gwpcr_refine_c, points, width)
 
-E.GAMMA.TH <- 1e-1
+# Experimentally determined by KS-testing rgwpcr against pgwpcr. For
+# efficiency 0.01, the KS-Test found essentially no difference at 1e6 samples.
+# At efficiency 0.02, both the interpolated simulation results and the gamma
+# approximation yield reduced p-values, but the simulation results are still
+# much better. This was thus chosen as as the cutoff point.
+E.GAMMA.TH <- 0.02
 
+# These are just for convenience and readability.
 delayedAssign('E.MIN', head(GWPCR$efficiency, 1))
-
 delayedAssign('E.MAX', tail(GWPCR$efficiency, 1))
 
+# This the weight factor use for slow cutover to the gamma approximation of
+# the gwpcr distribution. It is supposed to be C^1-smooth, and takes
+# value 1 at E.MIN and below, and 0 at E.GAMMA.TH and above, and increases
+# monotonically inbetween.
 gamma.factor <- function(efficiency) {
   c <- pmin(pmax(0, (efficiency - E.MIN)/(E.GAMMA.TH - E.MIN)), 1)
   f <- ifelse(c <= 0.5, 1 - 2*c^2, 2*(1 - c)^2)
