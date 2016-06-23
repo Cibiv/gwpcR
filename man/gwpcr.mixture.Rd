@@ -16,18 +16,25 @@ gwpcr.mixture(x, FUN, efficiency, molecules = 1,
 
 \item{molecules}{initial copy number}
 
-\item{grid.width.fun}{functions which returns the maximum grid size (i.e. distance
-between points) depending on \eqn{\lambda}. If the variance of
-\eqn{F} depends strongly on \eqn{\lambda}, this can be used
-to ensure that \eqn{F} is evaluated on finer grid for values
-of \eqn{lambda} where the variance is small.}
+\item{grid.width.fun}{functions which returns the maximum grid size (i.e.
+distance between points) depending on \eqn{\lambda}. If the variance of
+\eqn{F} depends strongly on \eqn{\lambda}, this can be used to ensure that
+\eqn{F} is evaluated on finer grid for values of \eqn{lambda} where the
+variance is small.}
 }
 \description{
-Computes mixtures (i.e. convex linear combinations) of arbitrary
-functions with PCR-distributed weights, i.e.
-\deqn{\int_0^\infty F(x,\lambda) \cdot \textrm{dgwpcr}(\lambda) \,d\lambda}{Int F(x,\lambda) dgwpcr(\lambda) d\lambda over [0, Infinity)}
-\eqn{F} is usually the pdf or cdf of a probability distribution,
-in which case \code{gwpcr.mixture} computes the pdf (resp. cdf)
-of mixture of F's with PCR-distributed weights.
+Computes mixtures (i.e. convex linear combinations) of arbitrary functions
+with PCR-distributed weights, i.e.
+}
+\details{
+\deqn{\int_0^\infty F(x,\lambda) \cdot \textrm{dgwpcr}(\lambda)
+\,d\lambda}{Int F(x,\lambda) dgwpcr(\lambda) d\lambda over [0, Infinity)}
+
+Function \eqn{F} is usually the pdf or cdf of a probability distribution, in which
+case \code{gwpcr.mixture} computes the pdf (resp. cdf) of mixture of F's with
+PCR-distributed weights.
+}
+\seealso{
+gwpcr
 }
 

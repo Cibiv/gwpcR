@@ -1,6 +1,25 @@
-#' PCR Product Distribution induced by a Binomial Galton-Watson Process
+#' Binomial Galton-Watson Model for the Polymerase Chain Reaction (PCR)
 #'
-#' Write Me
+#' @description Limit distribution of amount of PCR product relative to the
+#'   expected value after many cycles as prediced by a binomial Galton-Watson
+#'   model of the polymerase chain reaction (PCR), Parameters are
+#'   \code{efficiency} and \code{molecules} -- the former is the probability
+#'   that a molecule is duplicated during a particular PCR cycle, the latter the
+#'   initial number of molecules in the reaction mix.
+#'
+#'   Note that a \emph{molecule} refers to single strand here, and complementary
+#'   strands are not distinguished. Setting \code{molecules=2} thus models a PCR
+#'   reaction starting from a single piece of double-stranded DNA.
+#'
+#'   \code{dgwpcr} (resp. \code{pgwpcr}) evaluate the density (resp. the CDF) at
+#'   the given relative amount of PCR product \code{l} for parameters
+#'   \code{efficiency} and \code{molecules}. \code{dgwpcr.fun} (resp.
+#'   \code{pgwpcr.fun}) return a unary function which represents the density
+#'   (resp. CDF) for the given parameters. \code{rgwpcr} draws random samples by
+#'   simulation. If the number of PCR cycles to use is not specified, the
+#'   simulation is stopped once the expected absolute amount of PCR product
+#'   reaches one million molecules, at which point the distribution is
+#'   considered to be close to the limit distribution for infinitly many cycles.
 #'
 #' @param n number of random samples to generate
 #'
@@ -11,8 +30,42 @@
 #' @param molecules initial copy number
 #'
 #' @param cycles number of amplification cycles used for simulation. By default,
-#'               a large enough value is used to make the results virtually
-#'               idistinguishable from the limit for \eqn{cycles \to \infty}
+#'   a large enough value is used to make the results virtually idistinguishable
+#'   from the limit for \eqn{cycles \to \infty}
+#'
+#' @details The binomial Galton-Watson PCR model treats PCR as a branching
+#'   process. At time 0, the absolute number of molecules \eqn{c_n} is the
+#'   initial copy number \code{molecules}. Each time step from \eqn{c_n} to
+#'   \eqn{c_{n+1}}{c_(n+1)} corresponds to a PCR cycle and duplicates each of
+#'   the \eqn{c_n} molecules with the probability specified in parameter
+#'   \code{efficiency} (E). Thus,
+#'
+#'   \deqn{c_{n+1} = c_n + \textrm{Binomial}(c_n, efficiency).}{c_(c+1) = c_n +
+#'   Binomial(c_n, E).}
+#'
+#'   Each cycle thus increases the expected molecule count by a factor of
+#'   \eqn{(1+E)}. The \emph{relative} amount of PCR product after \eqn{n} cycles
+#'   is therefore
+#'
+#'   \deqn{l_n = c_n \cdot (1+E)^{-n}.}{l_n = c_n (1+E)^-n.}
+#'
+#'   \code{dgwpcr} (resp. \code{rgwpcr}) is the density (resp. CDF) of the a.c.
+#'   limit in distribution of \eqn{l_n} for \eqn{n \to \infty}{n to \infty}.
+#'   Essentially, the reason that \eqn{l_n} converges in distribution is that
+#'   the larget the number of molecules \eqn{c_n}, the smaller the additional
+#'   variability introduced into \eqn{c_(n+1)} by the term
+#'   \eqn{\textrm{Binomial}(c_n, efficiency).}{Binomial(c_n, E).}. For
+#'   reasonably large efficiencies, that becomes quickly negligible compared to
+#'   \eqn{c_n}. For \eqn{c_n=10^4}{c_n=2500} the standard deviation of the
+#'   binomial term is already only 25, i.e. 1% of \eqn{c_n}, and \eqn{c_n=2500}
+#'   can be expected to be reached within 20 cycles.
+#'
+#'   For this reason, using the limit distribution still yields a model of the
+#'   polymerase chain reaction that is sufficiently accurate for most purposes.
+#'
+#' @seealso gwpcr.sd
+#' @seealso gwpcr.mixture
+#' @seealso gwpcrpois
 #'
 #' @name gwpcr
 NULL
@@ -26,19 +79,18 @@ rgwpcr <- function(n, efficiency, molecules=1, cycles=NA) {
   if (!is.numeric(molecules) || (length(molecules) != 1) || (molecules != floor(molecules)) || (molecules < 1))
     stop('molecules must be a positive integral scalar')
 
-  # Determine how many cycles are necessary on average to produce 1e6
-  # molecules. After that point, we assume that the additional variability
-  # is negligible.
+  # Determine how many cycles are necessary on average to produce 1e6 molecules.
+  # After that point, we assume that the additional variability is negligible.
   if (is.na(cycles))
     cycles <- ceiling(log(1e6 / molecules)/log(1+efficiency))
 
   # Start with initial copy number
   if (efficiency < 1.0) {
-    # Flip a coin for each molecule in each sample to determine whether
-    # its copied. That can be done efficiently by sampling from a binomial
-    # distribution for each sample.gwpcrpois_simulate_c
-    # Note: Since this requires looping over all samples, the code was
-    # translated to C. See gwpcr_simulate in simulate.c.
+    # Flip a coin for each molecule in each sample to determine whether its
+    # copied. That can be done efficiently by sampling from a binomial
+    # distribution for each sample.gwpcrpois_simulate_c Note: Since this
+    # requires looping over all samples, the code was translated to C. See
+    # gwpcr_simulate in simulate.c.
     if (TRUE)
       .C(gwpcr_simulate_c,
          nsamples=as.integer(n),
@@ -225,18 +277,20 @@ pgwpcr <- function(l, efficiency, molecules=1){
 
 #' PCR Product Distribution Standard Deviation
 #'
-#' For efficiency \eqn{E} and initial number of molecules \eqn{n}, the
-#' PCR product distribution has \emph{variance} (not standard deviation!)
-#' \eqn{\frac{1-E}{1+E}\cdot\frac{1}{m}}{(1+E) / ((1-E) * m)}.
+#' @description For efficiency \eqn{E} and initial number of molecules \eqn{n},
+#'   the PCR product distribution has \emph{variance} (not standard deviation!)
+#'   \eqn{\frac{1-E}{1+E}\cdot\frac{1}{m}}{(1+E) / ((1-E) * m)}.
 #'
-#' Function \code{gwpcr.sd} uses this to compute the standard deviation
-#' (i.e. the square of the above) for a given efficiency and initial
-#' copy number, and \code{gwpcr.sd.inv} does the reverse and computes
-#' the efficiency given standard deviation and copy number.
+#'   Function \code{gwpcr.sd} uses this to compute the standard deviation (i.e.
+#'   the square of the above) for a given efficiency and initial copy number,
+#'   and \code{gwpcr.sd.inv} does the reverse and computes the efficiency given
+#'   standard deviation and copy number.
 #'
 #' @inheritParams gwpcr
 #'
 #' @param sd Standard deviation of the PCR product distribution
+#'
+#' @seealso gwpcr
 #'
 #' @export
 gwpcr.sd <- function(efficiency, molecules=1) {
@@ -277,12 +331,15 @@ gwpcr.sd.inv <- function(sd, molecules=1) {
 
 #' Mixtures of Distributions with PCR-distributed Weights
 #'
-#' Computes mixtures (i.e. convex linear combinations) of arbitrary
-#' functions with PCR-distributed weights, i.e.
-#' \deqn{\int_0^\infty F(x,\lambda) \cdot \textrm{dgwpcr}(\lambda) \,d\lambda}{Int F(x,\lambda) dgwpcr(\lambda) d\lambda over [0, Infinity)}
-#' \eqn{F} is usually the pdf or cdf of a probability distribution,
-#' in which case \code{gwpcr.mixture} computes the pdf (resp. cdf)
-#' of mixture of F's with PCR-distributed weights.
+#' Computes mixtures (i.e. convex linear combinations) of arbitrary functions
+#' with PCR-distributed weights, i.e.
+#'
+#' \deqn{\int_0^\infty F(x,\lambda) \cdot \textrm{dgwpcr}(\lambda)
+#' \,d\lambda}{Int F(x,\lambda) dgwpcr(\lambda) d\lambda over [0, Infinity)}
+#'
+#' Function \eqn{F} is usually the pdf or cdf of a probability distribution, in which
+#' case \code{gwpcr.mixture} computes the pdf (resp. cdf) of mixture of F's with
+#' PCR-distributed weights.
 #'
 #' @inheritParams gwpcr
 #'
@@ -290,11 +347,13 @@ gwpcr.sd.inv <- function(sd, molecules=1) {
 #'
 #' @param FUN function to mix
 #'
-#' @param grid.width.fun functions which returns the maximum grid size (i.e. distance
-#'                       between points) depending on \eqn{\lambda}. If the variance of
-#'                       \eqn{F} depends strongly on \eqn{\lambda}, this can be used
-#'                       to ensure that \eqn{F} is evaluated on finer grid for values
-#'                       of \eqn{lambda} where the variance is small.
+#' @param grid.width.fun functions which returns the maximum grid size (i.e.
+#'   distance between points) depending on \eqn{\lambda}. If the variance of
+#'   \eqn{F} depends strongly on \eqn{\lambda}, this can be used to ensure that
+#'   \eqn{F} is evaluated on finer grid for values of \eqn{lambda} where the
+#'   variance is small.
+#'
+#' @seealso gwpcr
 #'
 #' @export
 gwpcr.mixture <- function(x, FUN, efficiency, molecules=1, grid.width.fun = function(x) { Inf }) {

@@ -7,7 +7,7 @@
 \alias{pgwpcr}
 \alias{pgwpcr.fun}
 \alias{rgwpcr}
-\title{PCR Product Distribution induced by a Binomial Galton-Watson Process}
+\title{Binomial Galton-Watson Model for the Polymerase Chain Reaction (PCR)}
 \usage{
 rgwpcr(n, efficiency, molecules = 1, cycles = NA)
 
@@ -27,12 +27,69 @@ pgwpcr(l, efficiency, molecules = 1)
 \item{molecules}{initial copy number}
 
 \item{cycles}{number of amplification cycles used for simulation. By default,
-a large enough value is used to make the results virtually
-idistinguishable from the limit for \eqn{cycles \to \infty}}
+a large enough value is used to make the results virtually idistinguishable
+from the limit for \eqn{cycles \to \infty}}
 
 \item{l}{molecular family size relative to the average}
 }
 \description{
-Write Me
+Limit distribution of amount of PCR product relative to the
+  expected value after many cycles as prediced by a binomial Galton-Watson
+  model of the polymerase chain reaction (PCR), Parameters are
+  \code{efficiency} and \code{molecules} -- the former is the probability
+  that a molecule is duplicated during a particular PCR cycle, the latter the
+  initial number of molecules in the reaction mix.
+
+  Note that a \emph{molecule} refers to single strand here, and complementary
+  strands are not distinguished. Setting \code{molecules=2} thus models a PCR
+  reaction starting from a single piece of double-stranded DNA.
+
+  \code{dgwpcr} (resp. \code{pgwpcr}) evaluate the density (resp. the CDF) at
+  the given relative amount of PCR product \code{l} for parameters
+  \code{efficiency} and \code{molecules}. \code{dgwpcr.fun} (resp.
+  \code{pgwpcr.fun}) return a unary function which represents the density
+  (resp. CDF) for the given parameters. \code{rgwpcr} draws random samples by
+  simulation. If the number of PCR cycles to use is not specified, the
+  simulation is stopped once the expected absolute amount of PCR product
+  reaches one million molecules, at which point the distribution is
+  considered to be close to the limit distribution for infinitly many cycles.
+}
+\details{
+The binomial Galton-Watson PCR model treats PCR as a branching
+  process. At time 0, the absolute number of molecules \eqn{c_n} is the
+  initial copy number \code{molecules}. Each time step from \eqn{c_n} to
+  \eqn{c_{n+1}}{c_(n+1)} corresponds to a PCR cycle and duplicates each of
+  the \eqn{c_n} molecules with the probability specified in parameter
+  \code{efficiency} (E). Thus,
+
+  \deqn{c_{n+1} = c_n + \textrm{Binomial}(c_n, efficiency).}{c_(c+1) = c_n +
+  Binomial(c_n, E).}
+
+  Each cycle thus increases the expected molecule count by a factor of
+  \eqn{(1+E)}. The \emph{relative} amount of PCR product after \eqn{n} cycles
+  is therefore
+
+  \deqn{l_n = c_n \cdot (1+E)^{-n}.}{l_n = c_n (1+E)^-n.}
+
+  \code{dgwpcr} (resp. \code{rgwpcr}) is the density (resp. CDF) of the a.c.
+  limit in distribution of \eqn{l_n} for \eqn{n \to \infty}{n to \infty}.
+  Essentially, the reason that \eqn{l_n} converges in distribution is that
+  the larget the number of molecules \eqn{c_n}, the smaller the additional
+  variability introduced into \eqn{c_(n+1)} by the term
+  \eqn{\textrm{Binomial}(c_n, efficiency).}{Binomial(c_n, E).}. For
+  reasonably large efficiencies, that becomes quickly negligible compared to
+  \eqn{c_n}. For \eqn{c_n=10^4}{c_n=2500} the standard deviation of the
+  binomial term is already only 25, i.e. 1% of \eqn{c_n}, and \eqn{c_n=2500}
+  can be expected to be reached within 20 cycles.
+
+  For this reason, using the limit distribution still yields a model of the
+  polymerase chain reaction that is sufficiently accurate for most purposes.
+}
+\seealso{
+gwpcr.sd
+
+gwpcr.mixture
+
+gwpcrpois
 }
 
