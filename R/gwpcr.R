@@ -40,7 +40,7 @@
 #'   the \eqn{c_n} molecules with the probability specified in parameter
 #'   \code{efficiency} (E). Thus,
 #'
-#'   \deqn{c_{n+1} = c_n + \textrm{Binomial}(c_n, efficiency).}{c_(c+1) = c_n +
+#'   \deqn{c_{n+1} = c_n + \textrm{Binomial}(c_n, E).}{c_(c+1) = c_n +
 #'   Binomial(c_n, E).}
 #'
 #'   Each cycle thus increases the expected molecule count by a factor of
@@ -52,13 +52,14 @@
 #'   \code{dgwpcr} (resp. \code{rgwpcr}) is the density (resp. CDF) of the a.c.
 #'   limit in distribution of \eqn{l_n} for \eqn{n \to \infty}{n to \infty}.
 #'   Essentially, the reason that \eqn{l_n} converges in distribution is that
-#'   the larget the number of molecules \eqn{c_n}, the smaller the additional
-#'   variability introduced into \eqn{c_(n+1)} by the term
-#'   \eqn{\textrm{Binomial}(c_n, efficiency).}{Binomial(c_n, E).}. For
-#'   reasonably large efficiencies, that becomes quickly negligible compared to
-#'   \eqn{c_n}. For \eqn{c_n=10^4}{c_n=2500} the standard deviation of the
-#'   binomial term is already only 25, i.e. 1% of \eqn{c_n}, and \eqn{c_n=2500}
-#'   can be expected to be reached within 20 cycles.
+#'   the larger the number of molecules \eqn{c_n}, the smaller the additional
+#'   variability introduced into \eqn{c_{n+1}}{c_(n+1)} by the term
+#'   \eqn{\textrm{Binomial}(c_n, E).}{Binomial(c_n, E).}. For reasonably large
+#'   efficiencies, that becomes quickly negligible compared to \eqn{c_n}. Assume
+#'   e.g. an efficiency of 50\%, and that \eqn{c_n=10^4}{c_n=2500}. The standard
+#'   deviation of the binomial term is then already only 25, i.e. 1\% of
+#'   \eqn{c_n}, and this state can be expected to be reached after about 20
+#'   cycles.
 #'
 #'   For this reason, using the limit distribution still yields a model of the
 #'   polymerase chain reaction that is sufficiently accurate for most purposes.
