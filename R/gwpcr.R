@@ -64,9 +64,9 @@
 #'   For this reason, using the limit distribution still yields a model of the
 #'   polymerase chain reaction that is sufficiently accurate for most purposes.
 #'
-#' @seealso gwpcr.sd
-#' @seealso gwpcr.mixture
-#' @seealso gwpcrpois
+#' @seealso \code{\link{gwpcr.sd}}
+#' @seealso \code{\link{gwpcr.mixture}}
+#' @seealso \code{\link{gwpcrpois}}
 #'
 #' @name gwpcr
 NULL
@@ -291,7 +291,7 @@ pgwpcr <- function(l, efficiency, molecules=1){
 #'
 #' @param sd Standard deviation of the PCR product distribution
 #'
-#' @seealso gwpcr
+#' @seealso \code{\link{gwpcr}}
 #'
 #' @export
 gwpcr.sd <- function(efficiency, molecules=1) {
@@ -354,7 +354,7 @@ gwpcr.sd.inv <- function(sd, molecules=1) {
 #'   \eqn{F} is evaluated on finer grid for values of \eqn{lambda} where the
 #'   variance is small.
 #'
-#' @seealso gwpcr
+#' @seealso \code{\link{gwpcr}}
 #'
 #' @export
 gwpcr.mixture <- function(x, FUN, efficiency, molecules=1, grid.width.fun = function(x) { Inf }) {

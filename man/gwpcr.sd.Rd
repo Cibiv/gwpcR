@@ -27,6 +27,6 @@ For efficiency \eqn{E} and initial number of molecules \eqn{n},
   standard deviation and copy number.
 }
 \seealso{
-gwpcr
+\code{\link{gwpcr}}
 }
 

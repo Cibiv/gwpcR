@@ -35,6 +35,6 @@ case \code{gwpcr.mixture} computes the pdf (resp. cdf) of mixture of F's with
 PCR-distributed weights.
 }
 \seealso{
-gwpcr
+\code{\link{gwpcr}}
 }
 

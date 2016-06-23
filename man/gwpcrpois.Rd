@@ -39,6 +39,6 @@ idistinguishable from the limit for \eqn{cycles \to \infty}}
 Write Me
 }
 \seealso{
-gwpcr
+\code{\link{gwpcr}}
 }
 

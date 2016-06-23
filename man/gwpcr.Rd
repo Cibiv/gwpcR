@@ -87,10 +87,10 @@ The binomial Galton-Watson PCR model treats PCR as a branching
   polymerase chain reaction that is sufficiently accurate for most purposes.
 }
 \seealso{
-gwpcr.sd
+\code{\link{gwpcr.sd}}
 
-gwpcr.mixture
+\code{\link{gwpcr.mixture}}
 
-gwpcrpois
+\code{\link{gwpcrpois}}
 }
 

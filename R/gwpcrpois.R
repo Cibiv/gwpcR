@@ -24,7 +24,7 @@
 #'
 #' @name gwpcrpois
 #'
-#' @seealso gwpcr
+#' @seealso \code{\link{gwpcr}}
 NULL
 
 #' @rdname gwpcrpois
