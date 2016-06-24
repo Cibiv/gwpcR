@@ -4,18 +4,17 @@
 \alias{gwpcrpois.mom}
 \title{Method-of-Moments Parameter Estimation for PCR-Poisson Mixture}
 \usage{
-gwpcrpois.mom(mean, var, threshold = 1, molecules = 1)
+gwpcrpois.mom(mean, var, threshold = 1, molecules = 1, ctrl = list())
 }
 \arguments{
 \item{mean}{average number of observations per molecular family
-\strong{computed over the actually observed famililies}, i.e.
-over those families which were observed at least \code{threshold}
-times.}
+\emph{computed over the unambiguously detected famililies}, i.e. over those
+families which were observed at least \var{threshold} times.}
 
 \item{var}{standard deviations of number of observations per molecular
-family, also \strong{computed over the actually observed famililies}, i.e.
- over those families which were observed at least \code{threshold}
- times.}
+family, also \emph{computed over the unambiguously detected famililies},
+i.e. over those families which were observed at least \var{threshold}
+times.}
 
 \item{threshold}{minimal number of observations a molecular family must
 have to count as observed. Setting this to a value \eqn{v >= 0}
@@ -25,10 +24,64 @@ zero.}
 
 \item{molecules}{initial copy number}
 }
+\value{
+A list containing the values
+
+  \item{efficiency}{parameter estimate for \var{efficiency} (see
+  \link{gwpcrpois})}
+
+  \item{lambda0}{parameter estimate for \var{lambda0} (see \link{gwpcrpois})}
+
+  \item{pdetect}{probability of unambiguosly detecting a particular molecular
+  family, i.e of it having at least \var{threshold} observations}
+
+  \item{threshold}{detection threshold specified in the call to
+  \code{gwpcrpois.mom}}
+
+  \item{molecules}{initial molecule count specified in the call to
+  \code{gwpcrpois.mom}}
+}
 \description{
-Estimates the parameters \code{efficiency} and \code{lambda0} from the
-observed mean and variance. Supports estimation using a censored (conditional)
-distribution, i.e. the case where a molecular family is only considered
-to be observed if it is observed at least \code{threshold} number of times.
+Estimates the parameters \var{efficiency} and \var{lambda0} from the sample
+mean and variance. Supports arbitrary detection thresholds and initial
+molecule counts, but estimation is considerably faster in the (unrealistic)
+case \var{threshold=0} than in the general one.
+}
+\details{
+For the (unrealistic) uncensored case, i.e. \var{threshold=0}, the
+  specified mean is the method-of-moments estimate for \var{lambda0}, and a
+  closed formula is used to compute \var{efficiency} from \var{mean} and
+  \var{var}. The \var{ctrl} argument is not used in this case.
+
+  In case of a censored distribution, the sample mean is not a consistent
+  estimator for \var{lambda0} because the expectation of the censored
+  distribution is in general larger than \var{lambda0}. The sample variance
+  simiarly deviates from the variance of the uncensodres distribution.
+
+  An interative approach is used to find method-of-moment estimates in this
+  case. Initial estimates are computed as if \var{threshold} were zero. From
+  these the probability \var{pdetect} of detecting a particular family is
+  found, and used to correct for the biases in the sample mean and variance.
+  Then the parameter estimates are updated. This process continues until it
+  either converges or reaches the maximum allowed number of iterations. Both
+  termination criteria can be controlled via the \var{ctrl} parameter, which
+  is a list that can contain the following components: \describe{
+
+  \item{maxit}{Maximum number of iterations. Defaults to 150.}
+
+  \item{rel.tol}{Relative convergence tolerance. Applied to \var{efficiency},
+  \var{lambda0} and the detection probability \var{pdetect}. Defaults to
+  \code{1e-4}.}
+
+  \item{rel.tol}{Absolute convergence tolerance. Only used as the tolerance
+  around zero, where the relative tolerance becomes meaningless. Defaults to
+  \code{1e-4}.}
+
+  \item{trace}{Output estimates after each round}
+
+  }
+}
+\seealso{
+\code{\link{gwpcrpois}}
 }
 
