@@ -1,24 +1,74 @@
 #' Method-of-Moments Parameter Estimation for PCR-Poisson Mixture
 #'
-#' Estimates the parameters \code{efficiency} and \code{lambda0} from the
-#' observed mean and variance. Supports estimation using a censored (conditional)
-#' distribution, i.e. the case where a molecular family is only considered
-#' to be observed if it is observed at least \code{threshold} number of times.
+#' Estimates the parameters \var{efficiency} and \var{lambda0} from the sample
+#' mean and variance. Supports arbitrary detection thresholds and initial
+#' molecule counts, but estimation is considerably faster in the (unrealistic)
+#' case \var{threshold=0} than in the general one.
 #'
 #' @inheritParams gwpcrpois
 #'
 #' @param mean average number of observations per molecular family
-#'             \strong{computed over the actually observed famililies}, i.e.
-#'             over those families which were observed at least \code{threshold}
-#'             times.
+#'   \emph{computed over the unambiguously detected famililies}, i.e. over those
+#'   families which were observed at least \var{threshold} times.
 #'
 #' @param var standard deviations of number of observations per molecular
-#'            family, also \strong{computed over the actually observed famililies}, i.e.
-#'             over those families which were observed at least \code{threshold}
-#'             times.
+#'   family, also \emph{computed over the unambiguously detected famililies},
+#'   i.e. over those families which were observed at least \var{threshold}
+#'   times.
+#'
+#' @return A list containing the values
+#'
+#'   \item{efficiency}{parameter estimate for \var{efficiency} (see
+#'   \link{gwpcrpois})}
+#'
+#'   \item{lambda0}{parameter estimate for \var{lambda0} (see \link{gwpcrpois})}
+#'
+#'   \item{pdetect}{probability of unambiguosly detecting a particular molecular
+#'   family, i.e of it having at least \var{threshold} observations}
+#'
+#'   \item{threshold}{detection threshold specified in the call to
+#'   \code{gwpcrpois.mom}}
+#'
+#'   \item{molecules}{initial molecule count specified in the call to
+#'   \code{gwpcrpois.mom}}
+#'
+#' @details For the (unrealistic) uncensored case, i.e. \var{threshold=0}, the
+#'   specified mean is the method-of-moments estimate for \var{lambda0}, and a
+#'   closed formula is used to compute \var{efficiency} from \var{mean} and
+#'   \var{var}. The \var{ctrl} argument is not used in this case.
+#'
+#'   In case of a censored distribution, the sample mean is not a consistent
+#'   estimator for \var{lambda0} because the expectation of the censored
+#'   distribution is in general larger than \var{lambda0}. The sample variance
+#'   simiarly deviates from the variance of the uncensodres distribution.
+#'
+#'   An interative approach is used to find method-of-moment estimates in this
+#'   case. Initial estimates are computed as if \var{threshold} were zero. From
+#'   these the probability \var{pdetect} of detecting a particular family is
+#'   found, and used to correct for the biases in the sample mean and variance.
+#'   Then the parameter estimates are updated. This process continues until it
+#'   either converges or reaches the maximum allowed number of iterations. Both
+#'   termination criteria can be controlled via the \var{ctrl} parameter, which
+#'   is a list that can contain the following components: \describe{
+#'
+#'   \item{maxit}{Maximum number of iterations. Defaults to 150.}
+#'
+#'   \item{rel.tol}{Relative convergence tolerance. Applied to \var{efficiency},
+#'   \var{lambda0} and the detection probability \var{pdetect}. Defaults to
+#'   \code{1e-4}.}
+#'
+#'   \item{rel.tol}{Absolute convergence tolerance. Only used as the tolerance
+#'   around zero, where the relative tolerance becomes meaningless. Defaults to
+#'   \code{1e-4}.}
+#'
+#'   \item{trace}{Output estimates after each round}
+#'
+#'   }
+#'
+#' @seealso \code{\link{gwpcrpois}}
 #'
 #' @export
-gwpcrpois.mom <- function(mean, var, threshold=1, molecules=1) {
+gwpcrpois.mom <- function(mean, var, threshold=1, molecules=1, ctrl=list()) {
   if (!is.numeric(mean) || (length(mean) != 1) || (mean <= 0) || (mean >= Inf))
     stop('mean must be a strictly positive numeric scalar')
   if (!is.numeric(var) || (length(var) != 1) || (var <= 0) || (var >= Inf))
@@ -27,6 +77,26 @@ gwpcrpois.mom <- function(mean, var, threshold=1, molecules=1) {
     stop('threshold must be a non-negative integral scalar')
   if (!is.numeric(molecules) || (length(molecules) != 1) || (molecules != floor(molecules)) || (molecules < 1))
     stop('molecules must be a strictly positive integral scalar')
+
+  ctrl.get <- function(key, default) {
+    r <- ctrl[[key]]
+    if (!is.null(r))
+      r
+    else
+      default
+  }
+  rel.tol <- as.numeric(ctrl.get("rel.tol", 1e-4))
+  abs.tol <- as.numeric(ctrl.get("abs.tol", 1e-4))
+  maxit <- as.integer(ctrl.get("maxit", 150))
+  trace <- as.logical(ctrl.get("trace", FALSE))
+  within.tol <- function(old, new) {
+    if (abs(new) < abs.tol)
+      return(TRUE)
+    else if (abs((new - old) / new) < rel.tol)
+      return(TRUE)
+    else
+      return(FALSE)
+  }
 
   # A random variable C distributed according to the PCR-Poisson mixture
   # with parameters E (efficiency) and lambda0 has mean
@@ -42,10 +112,7 @@ gwpcrpois.mom <- function(mean, var, threshold=1, molecules=1) {
   #   V( L | E ) = v',
   # which is what gwpcr.sd.inv does using a pre-computed piecewise polynomial
   # approximation.
-  #
-  # XXX: In principle, the relationship between variance and efficiency is
-  # analytically tractable, so gwpcr.sd.inv could be replaced by the exact
-  # formula.
+  pdetect <- 1
   lambda0 <- mean
   efficiency <- gwpcr.sd.inv(sqrt(max((var - lambda0) / ( lambda0^2 ), 0)),
                              molecules=molecules)
@@ -77,35 +144,54 @@ gwpcrpois.mom <- function(mean, var, threshold=1, molecules=1) {
   # are not re-evaluated immediately after updating lambda0, but instead the
   # old values to used to update the efficiency. The values ARE then re-computed
   # during the next round, however,
-  #
-  # XXX: Now that gwpcr.sd and gwpcr.sd.inv no longer use the GWPCR data,
-  # but instead a analytically derived formula, could the system of equations
-  # we use here be solved analytically as well? Probably!!!!!
   if (threshold > 0) {
-    converged <- FALSE
-    rel.tol <- 1e-3
-    while (!converged) {
+    stop <- FALSE
+    i <- 0
+    if (trace)
+      print(cbind(iteration=i, efficiency=efficiency,
+                  lambda0=lambda0, pdetect=pdetect))
+    while (!stop) {
       x <- seq(from=0, to=threshold-1, by=1)
       d <- dgwpcrpois(x, efficiency=efficiency, lambda0=lambda0,
                       threshold=0, molecules=molecules)
-      p <- (1 - sum(d))
-      lambda0.p <- sum(x * d)   + p * mean
-      v         <- sum(x^2 * d) + p * (var + mean^2) - lambda0.p^2
+      pdetect.p <- (1 - sum(d))
+      lambda0.p <- sum(x * d)   + pdetect.p * mean
+      v         <- sum(x^2 * d) + pdetect.p * (var + mean^2) - lambda0.p^2
       efficiency.p <- gwpcr.sd.inv(sqrt(max((v - lambda0.p) / ( lambda0.p^2 ), 0)),
                                    molecules=molecules)
+      i <- i + 1
 
-      if ((abs(lambda0 - lambda0.p) / lambda0 <= rel.tol) &&
-          (abs(efficiency - efficiency.p) / max(efficiency, 1e-3) <= rel.tol))
-        converged <- TRUE
+      if (within.tol(lambda0, lambda0.p) && within.tol(efficiency, efficiency.p) &&
+          within.tol(pdetect, pdetect.p)) {
+        stop <- TRUE
+        convergence <- 0
+      } else if (i >= maxit) {
+        stop <- TRUE
+        convergence <- 1
+      }
 
       lambda0 <- lambda0.p
       efficiency <- efficiency.p
+      pdetect <- pdetect.p
+
+      if (trace)
+        print(cbind(iteration=i, efficiency=efficiency,
+                    lambda0=lambda0, pdetect=pdetect))
     }
+  } else {
+    pdetect <- 0
+    convergence <- 0
   }
 
+  if (trace)
+    cat(paste0("Convergence: ", if (convergence == 0) "Yes" else "No"))
+
+  if (convergence != 0)
+    warning("gwpcrpois.mom did not converge, returning best estimate so far")
+
   # Return results
-  return(list(lambda0=lambda0, efficiency=efficiency,
-              threshold=threshold, molecules=molecules))
+  return(list(lambda0=lambda0, efficiency=efficiency, pdetect=pdetect,
+              convergence=convergence, threshold=threshold, molecules=molecules))
 }
 
 #' Maximum-Likelihood Parameter Estimation for PCR-Poisson Mixture
