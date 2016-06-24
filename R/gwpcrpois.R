@@ -12,15 +12,14 @@
 #'
 #' @param molecules initial copy number
 #'
-#' @param threshold minimal number of observations a molecular family must
-#'                  have to count as observed. Setting this to a value \eqn{v >= 0}
-#'                  \emph{conditions} the distribution on \eqn{c >= c}, i.e
-#'                  every value of \eqn{c} less than that gets assigned probability
-#'                  zero.
+#' @param threshold minimal number of observations a molecular family must have
+#'   to count as \dfn{unambiguously detected}. Setting this to a value \eqn{v >=
+#'   0} \emph{conditions} the distribution on \eqn{c >= c}, i.e every value of
+#'   \eqn{c} less than that gets assigned probability zero.
 #'
 #' @param cycles number of amplification cycles used for simulation. By default,
-#'               a large enough value is used to make the results virtually
-#'               idistinguishable from the limit for \eqn{cycles \to \infty}
+#'   a large enough value is used to make the results virtually idistinguishable
+#'   from the limit for \eqn{cycles \to \infty}
 #'
 #' @name gwpcrpois
 #'

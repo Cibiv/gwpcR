@@ -36,17 +36,17 @@ from the limit for \eqn{cycles \to \infty}}
 Limit distribution of amount of PCR product relative to the
   expected value after many cycles as prediced by a binomial Galton-Watson
   model of the polymerase chain reaction (PCR), Parameters are
-  \code{efficiency} and \code{molecules} -- the former is the probability
-  that a molecule is duplicated during a particular PCR cycle, the latter the
+  \var{efficiency} and \var{molecules} -- the former is the probability that
+  a molecule is duplicated during a particular PCR cycle, the latter the
   initial number of molecules in the reaction mix.
 
   Note that a \emph{molecule} refers to single strand here, and complementary
-  strands are not distinguished. Setting \code{molecules=2} thus models a PCR
+  strands are not distinguished. Setting \var{molecules=2} thus models a PCR
   reaction starting from a single piece of double-stranded DNA.
 
   \code{dgwpcr} (resp. \code{pgwpcr}) evaluate the density (resp. the CDF) at
   the given relative amount of PCR product \code{l} for parameters
-  \code{efficiency} and \code{molecules}. \code{dgwpcr.fun} (resp.
+  \var{efficiency} and \var{molecules}. \code{dgwpcr.fun} (resp.
   \code{pgwpcr.fun}) return a unary function which represents the density
   (resp. CDF) for the given parameters. \code{rgwpcr} draws random samples by
   simulation. If the number of PCR cycles to use is not specified, the
@@ -57,10 +57,10 @@ Limit distribution of amount of PCR product relative to the
 \details{
 The binomial Galton-Watson PCR model treats PCR as a branching
   process. At time 0, the absolute number of molecules \eqn{c_n} is the
-  initial copy number \code{molecules}. Each time step from \eqn{c_n} to
+  initial copy number \var{molecules}. Each time step from \eqn{c_n} to
   \eqn{c_{n+1}}{c_(n+1)} corresponds to a PCR cycle and duplicates each of
   the \eqn{c_n} molecules with the probability specified in parameter
-  \code{efficiency} (E). Thus,
+  \var{efficiency} (\var{E}). Thus,
 
   \deqn{c_{n+1} = c_n + \textrm{Binomial}(c_n, E).}{c_(c+1) = c_n +
   Binomial(c_n, E).}

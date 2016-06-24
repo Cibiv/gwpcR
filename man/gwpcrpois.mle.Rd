@@ -9,11 +9,10 @@ gwpcrpois.mle(c, threshold = 1, molecules = 1)
 \arguments{
 \item{c}{number of observations of a particular molecular family}
 
-\item{threshold}{minimal number of observations a molecular family must
-have to count as observed. Setting this to a value \eqn{v >= 0}
-\emph{conditions} the distribution on \eqn{c >= c}, i.e
-every value of \eqn{c} less than that gets assigned probability
-zero.}
+\item{threshold}{minimal number of observations a molecular family must have
+to count as \dfn{unambiguously detected}. Setting this to a value \eqn{v >=
+0} \emph{conditions} the distribution on \eqn{c >= c}, i.e every value of
+\eqn{c} less than that gets assigned probability zero.}
 
 \item{molecules}{initial copy number}
 }

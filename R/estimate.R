@@ -40,7 +40,7 @@
 #'   In case of a censored distribution, the sample mean is not a consistent
 #'   estimator for \var{lambda0} because the expectation of the censored
 #'   distribution is in general larger than \var{lambda0}. The sample variance
-#'   simiarly deviates from the variance of the uncensodres distribution.
+#'   simiarly deviates from the variance of the uncensored distribution.
 #'
 #'   An interative approach is used to find method-of-moment estimates in this
 #'   case. Initial estimates are computed as if \var{threshold} were zero. From

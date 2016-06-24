@@ -4,8 +4,7 @@
 \alias{gwpcr.mixture}
 \title{Mixtures of Distributions with PCR-distributed Weights}
 \usage{
-gwpcr.mixture(x, FUN, efficiency, molecules = 1,
-  grid.width.fun = function(x) {     Inf })
+gwpcr.mixture(x, FUN, efficiency, molecules = 1, grid.width.fun = NULL)
 }
 \arguments{
 \item{x}{value to evaluate the mixture at}
@@ -24,15 +23,29 @@ variance is small.}
 }
 \description{
 Computes mixtures (i.e. convex linear combinations) of arbitrary functions
-with PCR-distributed weights, i.e.
+with PCR-distributed weights.
 }
 \details{
-\deqn{\int_0^\infty F(x,\lambda) \cdot \textrm{dgwpcr}(\lambda)
-\,d\lambda}{Int F(x,\lambda) dgwpcr(\lambda) d\lambda over [0, Infinity)}
+Numerically approximates the integral
 
-Function \eqn{F} is usually the pdf or cdf of a probability distribution, in which
-case \code{gwpcr.mixture} computes the pdf (resp. cdf) of mixture of F's with
-PCR-distributed weights.
+  \deqn{\int_0^\infty F(x,\lambda) \cdot \textrm{dgwpcr}(\lambda)
+  \,d\lambda}{Int F(x,\lambda) dgwpcr(\lambda) d\lambda over [0, Infinity)}
+
+  where \eqn{\textrm{dgwpcr}}{dgwpcr} is the density function of the PCR
+  product distribution for the specified efficiency and initial number of
+  molecules.
+
+  Function \eqn{F} is usually the pdf (probability density function) or cdf
+  (cumulative density function) of a probability distribution, in which case
+  \code{gwpcr.mixture} computes the pdf (resp. cdf) of mixture of F's with
+  PCR-distributed weights.
+
+  \code{grid.width.fun} can be used to control the coarseness of the
+  integration grid. This should be a unary function that takes a value of
+  \eqn{\lambda} and returns the maximum acceptable distance between grid
+  points in the vicinity of \eqn{\lambda} value. If \eqn{F(.,\lambda)} is a
+  pdf or cdf with \eqn{\lambda}-dependent variance, \code{grid.width.fun} can
+  be used to enforce a finer grid in regions where the variance is small.
 }
 \seealso{
 \code{\link{gwpcr}}

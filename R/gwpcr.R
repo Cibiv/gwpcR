@@ -3,17 +3,17 @@
 #' @description Limit distribution of amount of PCR product relative to the
 #'   expected value after many cycles as prediced by a binomial Galton-Watson
 #'   model of the polymerase chain reaction (PCR), Parameters are
-#'   \code{efficiency} and \code{molecules} -- the former is the probability
-#'   that a molecule is duplicated during a particular PCR cycle, the latter the
+#'   \var{efficiency} and \var{molecules} -- the former is the probability that
+#'   a molecule is duplicated during a particular PCR cycle, the latter the
 #'   initial number of molecules in the reaction mix.
 #'
 #'   Note that a \emph{molecule} refers to single strand here, and complementary
-#'   strands are not distinguished. Setting \code{molecules=2} thus models a PCR
+#'   strands are not distinguished. Setting \var{molecules=2} thus models a PCR
 #'   reaction starting from a single piece of double-stranded DNA.
 #'
 #'   \code{dgwpcr} (resp. \code{pgwpcr}) evaluate the density (resp. the CDF) at
 #'   the given relative amount of PCR product \code{l} for parameters
-#'   \code{efficiency} and \code{molecules}. \code{dgwpcr.fun} (resp.
+#'   \var{efficiency} and \var{molecules}. \code{dgwpcr.fun} (resp.
 #'   \code{pgwpcr.fun}) return a unary function which represents the density
 #'   (resp. CDF) for the given parameters. \code{rgwpcr} draws random samples by
 #'   simulation. If the number of PCR cycles to use is not specified, the
@@ -35,10 +35,10 @@
 #'
 #' @details The binomial Galton-Watson PCR model treats PCR as a branching
 #'   process. At time 0, the absolute number of molecules \eqn{c_n} is the
-#'   initial copy number \code{molecules}. Each time step from \eqn{c_n} to
+#'   initial copy number \var{molecules}. Each time step from \eqn{c_n} to
 #'   \eqn{c_{n+1}}{c_(n+1)} corresponds to a PCR cycle and duplicates each of
 #'   the \eqn{c_n} molecules with the probability specified in parameter
-#'   \code{efficiency} (E). Thus,
+#'   \var{efficiency} (\var{E}). Thus,
 #'
 #'   \deqn{c_{n+1} = c_n + \textrm{Binomial}(c_n, E).}{c_(c+1) = c_n +
 #'   Binomial(c_n, E).}
@@ -278,7 +278,7 @@ pgwpcr <- function(l, efficiency, molecules=1){
 
 #' PCR Product Distribution Standard Deviation
 #'
-#' @description For efficiency \eqn{E} and initial number of molecules \eqn{n},
+#' @description For efficiency \var{E} and initial number of molecules \var{m},
 #'   the PCR product distribution has \emph{variance} (not standard deviation!)
 #'   \eqn{\frac{1-E}{1+E}\cdot\frac{1}{m}}{(1+E) / ((1-E) * m)}.
 #'
@@ -333,14 +333,28 @@ gwpcr.sd.inv <- function(sd, molecules=1) {
 #' Mixtures of Distributions with PCR-distributed Weights
 #'
 #' Computes mixtures (i.e. convex linear combinations) of arbitrary functions
-#' with PCR-distributed weights, i.e.
+#' with PCR-distributed weights.
 #'
-#' \deqn{\int_0^\infty F(x,\lambda) \cdot \textrm{dgwpcr}(\lambda)
-#' \,d\lambda}{Int F(x,\lambda) dgwpcr(\lambda) d\lambda over [0, Infinity)}
+#' @details Numerically approximates the integral
 #'
-#' Function \eqn{F} is usually the pdf or cdf of a probability distribution, in which
-#' case \code{gwpcr.mixture} computes the pdf (resp. cdf) of mixture of F's with
-#' PCR-distributed weights.
+#'   \deqn{\int_0^\infty F(x,\lambda) \cdot \textrm{dgwpcr}(\lambda)
+#'   \,d\lambda}{Int F(x,\lambda) dgwpcr(\lambda) d\lambda over [0, Infinity)}
+#'
+#'   where \eqn{\textrm{dgwpcr}}{dgwpcr} is the density function of the PCR
+#'   product distribution for the specified efficiency and initial number of
+#'   molecules.
+#'
+#'   Function \eqn{F} is usually the pdf (probability density function) or cdf
+#'   (cumulative density function) of a probability distribution, in which case
+#'   \code{gwpcr.mixture} computes the pdf (resp. cdf) of mixture of F's with
+#'   PCR-distributed weights.
+#'
+#'   \code{grid.width.fun} can be used to control the coarseness of the
+#'   integration grid. This should be a unary function that takes a value of
+#'   \eqn{\lambda} and returns the maximum acceptable distance between grid
+#'   points in the vicinity of \eqn{\lambda} value. If \eqn{F(.,\lambda)} is a
+#'   pdf or cdf with \eqn{\lambda}-dependent variance, \code{grid.width.fun} can
+#'   be used to enforce a finer grid in regions where the variance is small.
 #'
 #' @inheritParams gwpcr
 #'
@@ -357,7 +371,9 @@ gwpcr.sd.inv <- function(sd, molecules=1) {
 #' @seealso \code{\link{gwpcr}}
 #'
 #' @export
-gwpcr.mixture <- function(x, FUN, efficiency, molecules=1, grid.width.fun = function(x) { Inf }) {
+gwpcr.mixture <- function(x, FUN, efficiency, molecules=1, grid.width.fun = NULL) {
+  if (is.null(grid.width.fun))
+    grid.width.fun <- function(x) { Inf }
   if (!is.function(FUN))
     stop("FUN must be a function with signature FUN(x, lambda)")
   if (!is.numeric(efficiency) || (length(efficiency) != 1) || (efficiency < 0) || (efficiency > 1))

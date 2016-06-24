@@ -68,14 +68,16 @@ density.interpolate <- function(x0, y0, m) {
 
 #' Precompute PCR Product Distribution for a larger Number of initial Molecules
 #'
-#' This function is called automatically whenever a value of \code{molecules}
-#' larger than one is passed to any of the package's other functions, so this
-#' function usually isn't needed and shouldn't be called.
+#' @description This function is called automatically whenever a value of
+#'   \code{molecules} larger than one is passed to any of the package's other
+#'   functions for the first time, so this function usually isn't needed and
+#'   shouldn't be called.
 #'
-#' However, e.g. when using the \code{parallel} package to spread computions
-#' over multiple CPUs, it can be advantageous to do the necessary computations
-#' once, instead within each of the worker processes launched by the \code{parallel}
-#' package.
+#'   However, when using the \code{parallel} package to spread computions over
+#'   multiple CPUs, it can be advantageous to do the necessary computations
+#'   once, instead within each of the worker processes launched by the
+#'   \code{parallel} package. In this case, call
+#'   \code{gwpcr.molecules.precompute} before lauching any workers.
 #'
 #' @inheritParams gwpcrpois
 #'

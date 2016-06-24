@@ -16,11 +16,10 @@ family, also \emph{computed over the unambiguously detected famililies},
 i.e. over those families which were observed at least \var{threshold}
 times.}
 
-\item{threshold}{minimal number of observations a molecular family must
-have to count as observed. Setting this to a value \eqn{v >= 0}
-\emph{conditions} the distribution on \eqn{c >= c}, i.e
-every value of \eqn{c} less than that gets assigned probability
-zero.}
+\item{threshold}{minimal number of observations a molecular family must have
+to count as \dfn{unambiguously detected}. Setting this to a value \eqn{v >=
+0} \emph{conditions} the distribution on \eqn{c >= c}, i.e every value of
+\eqn{c} less than that gets assigned probability zero.}
 
 \item{molecules}{initial copy number}
 }
@@ -56,7 +55,7 @@ For the (unrealistic) uncensored case, i.e. \var{threshold=0}, the
   In case of a censored distribution, the sample mean is not a consistent
   estimator for \var{lambda0} because the expectation of the censored
   distribution is in general larger than \var{lambda0}. The sample variance
-  simiarly deviates from the variance of the uncensodres distribution.
+  simiarly deviates from the variance of the uncensored distribution.
 
   An interative approach is used to find method-of-moment estimates in this
   case. Initial estimates are computed as if \var{threshold} were zero. From
