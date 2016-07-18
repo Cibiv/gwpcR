@@ -1,25 +1,27 @@
 #' Binomial Galton-Watson Model for the Polymerase Chain Reaction (PCR)
 #'
-#' @description Limit distribution of amount of PCR product relative to the
-#'   expected value after many cycles as prediced by a binomial Galton-Watson
-#'   model of the polymerase chain reaction (PCR), Parameters are
-#'   \var{efficiency} and \var{molecules} -- the former is the probability that
-#'   a molecule is duplicated during a particular PCR cycle, the latter the
-#'   initial number of molecules in the reaction mix.
+#' @description Limit distribution of \dfn{molecular family sizes} (i.e. number
+#'   of post-amplification copies of each kind of molecule present in the
+#'   pre-amplifcation reaction mix) relative to the expected value after many
+#'   cycles as prediced by a binomial Galton-Watson model of the polymerase
+#'   chain reaction (PCR). Parameters are \var{efficiency} and \var{molecules}
+#'   -- the former is the probability that a molecule is duplicated during a
+#'   particular PCR cycle, the latter the initial number of copies of in the
+#'   reaction mix.
 #'
 #'   Note that a \emph{molecule} refers to single strand here, and complementary
 #'   strands are not distinguished. Setting \var{molecules=2} thus models a PCR
 #'   reaction starting from a single piece of double-stranded DNA.
 #'
 #'   \code{dgwpcr} (resp. \code{pgwpcr}) evaluate the density (resp. the CDF) at
-#'   the given relative amount of PCR product \code{l} for parameters
-#'   \var{efficiency} and \var{molecules}. \code{dgwpcr.fun} (resp.
-#'   \code{pgwpcr.fun}) return a unary function which represents the density
-#'   (resp. CDF) for the given parameters. \code{rgwpcr} draws random samples by
-#'   simulation. If the number of PCR cycles to use is not specified, the
-#'   simulation is stopped once the expected absolute amount of PCR product
-#'   reaches one million molecules, at which point the distribution is
-#'   considered to be close to the limit distribution for infinitly many cycles.
+#'   the given relative family size \code{l} for parameters \var{efficiency} and
+#'   \var{molecules}. \code{dgwpcr.fun} (resp. \code{pgwpcr.fun}) return a unary
+#'   function which represents the density (resp. CDF) for the given parameters.
+#'   \code{rgwpcr} draws random samples by simulation. If the number of PCR
+#'   cycles to use is not specified, the simulation is stopped once the expected
+#'   absolute family siye reaches one million molecules, at which point the
+#'   distribution is considered to be close to the limit distribution for
+#'   infinitly many cycles.
 #'
 #' @param n number of random samples to generate
 #'
@@ -44,8 +46,8 @@
 #'   Binomial(c_n, E).}
 #'
 #'   Each cycle thus increases the expected molecule count by a factor of
-#'   \eqn{(1+E)}. The \emph{relative} amount of PCR product after \eqn{n} cycles
-#'   is therefore
+#'   \eqn{(1+E)}. The \emph{relative} size of molecular families after \eqn{n}
+#'   cycles is therefore
 #'
 #'   \deqn{l_n = c_n \cdot (1+E)^{-n}.}{l_n = c_n (1+E)^-n.}
 #'
