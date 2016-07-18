@@ -18,6 +18,9 @@
 #'
 #' @return A list containing the values
 #'
+#'   \item{convergence}{flag indicating whether the estimation converged.
+#'   \code{0} indicates convergence.}
+#'
 #'   \item{efficiency}{parameter estimate for \var{efficiency} (see
 #'   \link{gwpcrpois})}
 #'
@@ -235,7 +238,8 @@ gwpcrpois.mle <- function(c, threshold=1, molecules=1) {
                                      lambda0=p0['lambda0']/10)))
 
   # Return result
-  list(efficiency=as.vector(r$par['efficiency']),
+  list(convergence=r$convergence,
+       efficiency=as.vector(r$par['efficiency']),
        lambda0=as.vector(r$par['lambda0']),
        threshold=threshold,
        molecules=molecules)
