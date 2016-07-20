@@ -86,6 +86,10 @@ gwpcr.molecules.precompute <- function(molecules) {
   if (!is.numeric(molecules) || (length(molecules) != 1) || (molecules != floor(molecules)) || (molecules < 1))
     stop('molecules must be a positive integral scalar')
 
+  # Data for a single molecule is computed by sysdata.R and loaded from sysdata.rda
+  if (molecules == 1)
+    return(GWPCR$data[[molecules]])
+
   # The distribution for <molecules> initial molecules is computed by
   # convolving the densities for m1 and m_2 initial molecules, where m = m1+m2.
   m1 <- floor(molecules / 2)
