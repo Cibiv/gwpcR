@@ -28,6 +28,10 @@
 #'
 #'   \item{pdetect}{probability of unambiguosly detecting a particular molecular
 #'   family, i.e of it having at least \var{threshold} observations}
+#'   
+#'   \item{p0}{probability of not unambiguosly detecting a particular molecular
+#'   family, i.e of it having fewer than \var{threshold} observations. Always
+#'   equal to \code{1-pdetect}}
 #'
 #'   \item{threshold}{detection threshold specified in the call to
 #'   \code{gwpcrpois.mom}}
@@ -193,7 +197,7 @@ gwpcrpois.mom <- function(mean, var, threshold=1, molecules=1, ctrl=list()) {
     warning("gwpcrpois.mom did not converge, returning best estimate so far")
 
   # Return results
-  return(list(lambda0=lambda0, efficiency=efficiency, pdetect=pdetect,
+  return(list(lambda0=lambda0, efficiency=efficiency, pdetect=pdetect, p0=1-pdetect,
               convergence=convergence, threshold=threshold, molecules=molecules))
 }
 
@@ -238,9 +242,113 @@ gwpcrpois.mle <- function(c, threshold=1, molecules=1) {
                                      lambda0=p0['lambda0']/10)))
 
   # Return result
+  # XXX: Also return p0 and pdetect
   list(convergence=r$convergence,
        efficiency=as.vector(r$par['efficiency']),
        lambda0=as.vector(r$par['lambda0']),
        threshold=threshold,
        molecules=molecules)
+}
+
+#' Shrinkage Estimator for Individual Parameters of PCR-Poisson Mixture
+#' 
+#' Low-noise estimates of \var{efficiency} and \var{lambda0} for subsets of the
+#' data (e.g.' for individual genes of an RNA-Seq experiment), even if those
+#' subsets contain only few UMIs.
+#' 
+#' XXX
+#'
+#' @inheritParams gwpcrpois
+#'
+#' @export
+gwpcrpois.mom.multiple <- function(formula, data, threshold=1, molecules=1, ctrl=list()) {
+  # Get control parameters
+  ctrl.get <- function(key, default) {
+    r <- ctrl[[key]]
+    if (!is.null(r))
+      r
+    else
+      default
+  }
+  cores <- as.numeric(ctrl.get("cores", 1))
+
+  # Subset data to have the "count" column (left side of formula) as the first column,
+  # followed by the key columns defining the groups (e.g. the gene name, but can be more
+  # than one).
+  data.f <- data.table(model.frame(formula, data))
+  group.key <- labels(terms(formula))
+  colnames(data.f)[1] <- "count"
+  data.th <- data.f[count >= threshold, ]
+
+  # Global mean and variance
+  mean.global = data.th[, mean(count)]
+  var.global = data.th[, var(count)]
+  
+  # Groupwise means and variances
+  data.gen <- rbind(
+    data.th[, list(mean.global=mean.global,
+                   mean.withingroup=mean(count),
+                   var.global=var.global,
+                   var.withingroup=var(count),
+                   n=.N)
+            , by=group.key],
+    data.f[!data.th
+           , list(mean.global=mean.global,
+                  mean.withingroup=NA,
+                  var.global=var.global,
+                  var.withingroup=NA,
+                  n=0),
+           by=group.key, on=group.key])
+  setkeyv(data.gen, group.key)
+  
+  # Between-groups variance of groupwise mean/variance XXX 1:500
+  mean.intergroup.var <- data.gen[order(n, decreasing=TRUE), var(mean.withingroup, na.rm=TRUE)]
+  var.intergroup.var <- data.gen[order(n, decreasing=TRUE), var(var.withingroup, na.rm=TRUE)]
+  
+  # Shrink genewise means towards global mean according to estimated standard error
+  # of the genewise mean. We assume that the variance is the same between groups when
+  # computing the standard error
+  data.gen[, mean.intergroup.var := mean.intergroup.var ]
+  data.gen[, mean.withingroup.stderr := var.global / n ]
+  data.gen[, mean := ifelse(is.finite(mean.withingroup.stderr),
+                            (mean.withingroup * mean.intergroup.var + mean.global * mean.withingroup.stderr) /
+                              (mean.intergroup.var + mean.withingroup.stderr),
+                            mean.global) ]
+  
+  # Shrink genewise variances towards global variance according to estimated standard error
+  # of the genwise variance. We assume that the 4th moment (m4.glob) is the same between
+  # groups when computing the standard error.
+  m4.glob <- data.th[, mean((count - mean.global)^4) ]
+  data.gen[, var.intergroup.var := var.intergroup.var ]
+  data.gen[, var.withingroup.stderr := 
+             ifelse(n >= 3,
+                    pmax(m4.glob - (var.global ^ 2) * (n-3)/(n-1), 0) / n,
+                    Inf) ]
+  data.gen[, var :=
+             ifelse(is.finite(var.withingroup.stderr),
+                    (var.withingroup * var.intergroup.var + var.global * var.withingroup.stderr) /
+                      (var.intergroup.var + var.withingroup.stderr),
+                    var.global) ]
+  
+  # Use method of moments to find model parameters. If we're told to use more than one core,
+  # the parallel package's mclapply is used to distribution the work
+  data.gen.keys <- do.call(mapply, c(list(list), data.gen[, ..group.key], list(SIMPLIFY=FALSE)))
+  my.lapply <- if (cores > 1) {
+    function(...) { mclapply(..., mc.cores=cores, mc.preschedule=TRUE, mc.cleanup=TRUE) }
+  } else {
+    lapply
+  }
+  data.gen <- rbindlist(my.lapply(data.gen.keys, function(k) {
+    data.gen[k,][, c('efficiency', 'lambda0', 'p0') := {
+      m <- gwpcrpois.mom(mean, var, threshold=threshold, molecules=molecules, ctrl=ctrl)
+      list(m$efficiency, m$lambda0, m$p0)
+    }]
+  }))
+  setkeyv(data.gen, group.key)
+  
+  # Correct for unobserved UMIs
+  data.gen[, n.tot := ifelse(n >= 2, n / (1 - p0), n) ]
+  
+  # Return data
+  return(data.gen)
 }
