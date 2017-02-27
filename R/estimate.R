@@ -279,28 +279,22 @@ gwpcrpois.mom.multiple <- function(formula, data, threshold=1, molecules=1, ctrl
   group.key <- labels(terms(formula))
   colnames(data.f)[1] <- "count"
   data.th <- data.f[count >= threshold, ]
-
+  setkeyv(data.th, group.key)
+  
   # Global mean and variance
   mean.global = data.th[, mean(count)]
   var.global = data.th[, var(count)]
   
   # Groupwise means and variances
-  data.gen <- rbind(
-    data.th[, list(mean.global=mean.global,
-                   mean.withingroup=mean(count),
-                   var.global=var.global,
-                   var.withingroup=var(count),
-                   n=.N)
-            , by=group.key],
-    data.f[!data.th
-           , list(mean.global=mean.global,
-                  mean.withingroup=NA,
-                  var.global=var.global,
-                  var.withingroup=NA,
-                  n=0),
-           by=group.key, on=group.key])
+  data.gen <- data.th[data.f[, list(dummy=1), by=group.key]
+                      , list(mean.global=mean.global,
+                             mean.withingroup=mean(count),
+                             var.global=var.global,
+                             var.withingroup=var(count),
+                             n=.N)
+                      , on=group.key, by=.EACHI]
   setkeyv(data.gen, group.key)
-  
+
   # Between-groups variance of groupwise mean/variance XXX 1:500
   mean.intergroup.var <- data.gen[order(n, decreasing=TRUE), var(mean.withingroup, na.rm=TRUE)]
   var.intergroup.var <- data.gen[order(n, decreasing=TRUE), var(var.withingroup, na.rm=TRUE)]
