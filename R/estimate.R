@@ -281,6 +281,7 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, ctr
       default
   }
   cores <- as.numeric(ctrl.get("cores", 1))
+  shrink.only <- as.logical(ctrl.get("shrink.only", FALSE))
 
   # Subset data to have the "count" column (left side of formula) as the first column,
   # followed by the key columns defining the groups (e.g. the gene name, but can be more
@@ -297,23 +298,28 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, ctr
   
   # Use method of moments to find global parameter estimates, and use those
   # as initial values for further parameter searches
-  m.global <- gwpcrpois.mom(mean.global, var.global, threshold=threshold, molecules=molecules,
-                            ctrl=ctrl)
-  ctrl$initial <- m.global
+  if (!shrink.only) {
+    m.global <- gwpcrpois.mom(mean.global, var.global,
+                              threshold=threshold, molecules=molecules,
+                              ctrl=ctrl)
+    ctrl$initial <- m.global
+  }
   
   # Groupwise means and variances
   data.gen <- data.th[data.f[, list(dummy=1), by=group.key]
-                      , list(mean.global=mean.global,
-                             var.global=var.global,
-                             efficiency.global=m.global$efficiency,
-                             lambda0.lgobal=m.global$lambda0,
-                             p0.global=m.global$p0,
-                             mean.withingroup=mean(count),
-                             var.withingroup=var(count),
-                             n=.N)
+                      , c(list(mean.global=mean.global,
+                               var.global=var.global),
+                          if (!shrink.only)
+                            list(efficiency.global=m.global$efficiency,
+                                 lambda0.lgobal=m.global$lambda0,
+                                 p0.global=m.global$p0)
+                          else list(),
+                          list(mean.withingroup=mean(count),
+                               var.withingroup=var(count),
+                               n=.N))
                       , on=group.key, by=.EACHI]
   setkeyv(data.gen, group.key)
-
+  
   # Between-groups variance of groupwise mean/variance XXX 1:500
   mean.intergroup.var <- data.gen[order(n, decreasing=TRUE), var(mean.withingroup, na.rm=TRUE)]
   var.intergroup.var <- data.gen[order(n, decreasing=TRUE), var(var.withingroup, na.rm=TRUE)]
@@ -342,6 +348,11 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, ctr
                     (var.withingroup * var.intergroup.var + var.global * var.withingroup.stderr) /
                       (var.intergroup.var + var.withingroup.stderr),
                     var.global) ]
+
+  # If we're only supposed to compute shrunken estimates of mean and variance,
+  # we're done here.
+  if (shrink.only)
+    return(data.gen)
   
   # Use method of moments to find model parameters. If we're told to use more than one core,
   # the parallel package's mclapply is used to distribution the work
@@ -361,7 +372,7 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, ctr
   
   # Correct for unobserved UMIs
   data.gen[, n.tot := ifelse(n >= 2, n / (1 - p0), n) ]
-  
+
   # Return data
   return(data.gen)
 }
