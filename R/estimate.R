@@ -85,6 +85,9 @@ gwpcrpois.mom <- function(mean, var, threshold=1, molecules=1, ctrl=list()) {
   if (!is.numeric(molecules) || (length(molecules) != 1) || (molecules != floor(molecules)) || (molecules < 1))
     stop('molecules must be a strictly positive integral scalar')
 
+  # If the threshold is non-zero, we resort to a numerical solution
+  exact.solution <- (threshold == 0)
+  
   ctrl.get <- function(key, default) {
     r <- ctrl[[key]]
     if (!is.null(r))
@@ -96,6 +99,7 @@ gwpcrpois.mom <- function(mean, var, threshold=1, molecules=1, ctrl=list()) {
   abs.tol <- as.numeric(ctrl.get("abs.tol", 1e-4))
   maxit <- as.integer(ctrl.get("maxit", 150))
   trace <- as.logical(ctrl.get("trace", FALSE))
+  initial <- as.list(ctrl.get("initial", NULL))
   within.tol <- function(old, new) {
     if (abs(new) < abs.tol)
       return(TRUE)
@@ -117,13 +121,19 @@ gwpcrpois.mom <- function(mean, var, threshold=1, molecules=1, ctrl=list()) {
   #   v' = ( Var(C) - lambda0 ) / lambda0^2
   # and find E such that
   #   V( L | E ) = v',
-  # which is what gwpcr.sd.inv does using a pre-computed piecewise polynomial
-  # approximation.
-  pdetect <- 1
-  lambda0 <- mean
-  efficiency <- gwpcr.sd.inv(sqrt(max((var - lambda0) / ( lambda0^2 ), 0)),
-                             molecules=molecules)
-
+  # which is what gwpcr.sd.inv does
+  if (exact.solution || (length(initial) == 0)) {
+    pdetect <- 1
+    lambda0 <- mean
+    efficiency <- gwpcr.sd.inv(sqrt(max((var - lambda0) / ( lambda0^2 ), 0)),
+                               molecules=molecules)
+  } else {
+    # If the user specified an initial value, use that
+    pdetect <- 1 - initial$p0
+    lambda0 <- initial$lambda0
+    efficiency <- initial$efficiency
+  }
+    
   # If the data is censored, i.e. if only counts >= threshold > 0 are
   # observed, the sample mean will over-estimate lambda0, and the sample
   # variance also won't reflect the uncensored distribution's variance.
@@ -151,7 +161,7 @@ gwpcrpois.mom <- function(mean, var, threshold=1, molecules=1, ctrl=list()) {
   # are not re-evaluated immediately after updating lambda0, but instead the
   # old values to used to update the efficiency. The values ARE then re-computed
   # during the next round, however,
-  if (threshold > 0) {
+  if (!exact.solution) {
     stop <- FALSE
     i <- 0
     if (trace)
@@ -261,7 +271,7 @@ gwpcrpois.mle <- function(c, threshold=1, molecules=1) {
 #' @inheritParams gwpcrpois
 #'
 #' @export
-gwpcrpois.mom.multiple <- function(formula, data, threshold=1, molecules=1, ctrl=list()) {
+gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, ctrl=list()) {
   # Get control parameters
   ctrl.get <- function(key, default) {
     r <- ctrl[[key]]
@@ -285,11 +295,20 @@ gwpcrpois.mom.multiple <- function(formula, data, threshold=1, molecules=1, ctrl
   mean.global = data.th[, mean(count)]
   var.global = data.th[, var(count)]
   
+  # Use method of moments to find global parameter estimates, and use those
+  # as initial values for further parameter searches
+  m.global <- gwpcrpois.mom(mean.global, var.global, threshold=threshold, molecules=molecules,
+                            ctrl=ctrl)
+  ctrl$initial <- m.global
+  
   # Groupwise means and variances
   data.gen <- data.th[data.f[, list(dummy=1), by=group.key]
                       , list(mean.global=mean.global,
-                             mean.withingroup=mean(count),
                              var.global=var.global,
+                             efficiency.global=m.global$efficiency,
+                             lambda0.lgobal=m.global$lambda0,
+                             p0.global=m.global$p0,
+                             mean.withingroup=mean(count),
                              var.withingroup=var(count),
                              n=.N)
                       , on=group.key, by=.EACHI]
