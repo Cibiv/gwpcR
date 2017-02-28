@@ -50,4 +50,3 @@ Numerically approximates the integral
 \seealso{
 \code{\link{gwpcr}}
 }
-

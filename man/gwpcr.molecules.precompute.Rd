@@ -21,4 +21,3 @@ This function is called automatically whenever a value of
   \code{parallel} package. In this case, call
   \code{gwpcr.molecules.precompute} before lauching any workers.
 }
-

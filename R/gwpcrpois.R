@@ -54,7 +54,7 @@ rgwpcrpois <- function(n, efficiency, lambda0, threshold=1, molecules=1, cycles=
 
   # Sample until we have enough samples
   j <- 0
-  r <- rep(as.integer(NA), j)
+  r <- rep(as.double(NA), j)
   while(j < n) {
     # Compute number of samples generate, taking the average acception rate p.th
     # into account, as well as the fluctuations around that rate, which are binomial.

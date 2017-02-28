@@ -29,4 +29,3 @@ For efficiency \var{E} and initial number of molecules \var{m},
 \seealso{
 \code{\link{gwpcr}}
 }
-

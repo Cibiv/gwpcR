@@ -26,6 +26,9 @@ to count as \dfn{unambiguously detected}. Setting this to a value \eqn{v >=
 \value{
 A list containing the values
 
+  \item{convergence}{flag indicating whether the estimation converged.
+  \code{0} indicates convergence.}
+
   \item{efficiency}{parameter estimate for \var{efficiency} (see
   \link{gwpcrpois})}
 
@@ -33,6 +36,10 @@ A list containing the values
 
   \item{pdetect}{probability of unambiguosly detecting a particular molecular
   family, i.e of it having at least \var{threshold} observations}
+  
+  \item{p0}{probability of not unambiguosly detecting a particular molecular
+  family, i.e of it having fewer than \var{threshold} observations. Always
+  equal to \code{1-pdetect}}
 
   \item{threshold}{detection threshold specified in the call to
   \code{gwpcrpois.mom}}
@@ -83,4 +90,3 @@ For the (unrealistic) uncensored case, i.e. \var{threshold=0}, the
 \seealso{
 \code{\link{gwpcrpois}}
 }
-
