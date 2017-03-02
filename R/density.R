@@ -87,7 +87,8 @@ gwpcr.molecules.precompute <- function(molecules) {
     stop('molecules must be a positive integral scalar')
 
   # Data for a single molecule is computed by sysdata.R and loaded from sysdata.rda
-  if (molecules == 1)
+  # Thus, for molecules==1 we always exit immediately
+  if ((molecules <= length(GWPCR$data)) && !is.null(GWPCR$data[[molecules]]))
     return(GWPCR$data[[molecules]])
 
   # The distribution for <molecules> initial molecules is computed by
