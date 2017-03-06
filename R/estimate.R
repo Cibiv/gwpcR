@@ -271,7 +271,7 @@ gwpcrpois.mle <- function(c, threshold=1, molecules=1) {
 #' @inheritParams gwpcrpois
 #'
 #' @export
-gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, ctrl=list()) {
+gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, group.size=1, ctrl=list()) {
   # Get control parameters
   ctrl.get <- function(key, default) {
     r <- ctrl[[key]]
@@ -281,7 +281,13 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, ctr
       default
   }
   cores <- as.numeric(ctrl.get("cores", 1))
+  my.lapply <- if (cores > 1) {
+    function(...) { mclapply(..., mc.cores=cores, mc.preschedule=TRUE, mc.cleanup=TRUE) }
+  } else {
+    lapply
+  }
   shrink.only <- as.logical(ctrl.get("shrink.only", FALSE))
+  include.unshrunken.estimates <- as.logical(ctrl.get("include.unshrunken.estimates", FALSE))
 
   # Subset data to have the "count" column (left side of formula) as the first column,
   # followed by the key columns defining the groups (e.g. the gene name, but can be more
@@ -320,6 +326,30 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, ctr
                       , on=group.key, by=.EACHI]
   setkeyv(data.gen, group.key)
   
+  if (include.unshrunken.estimates) {
+    # Estimates using raw (unshrunken) groupwise mean and variance
+    data.gen.keys <- do.call(mapply, c(list(list), data.gen[, ..group.key], list(SIMPLIFY=FALSE)))
+    data.gen <- rbindlist(my.lapply(data.gen.keys, function(k) {
+      data.gen[k,][, c('efficiency.unshrunken', 'lambda0.unshrunken', 'p0.unshrunken') := {
+        m <- tryCatch({
+          gwpcrpois.mom(mean.withingroup, var.withingroup, threshold=threshold, molecules=molecules, ctrl=ctrl)
+        }, error=function(e) {
+          cat(paste0("Failed to solve for unshrunken parameters for group (",
+                     paste0(lapply(k, as.character), collapse=","),
+                     "): ", conditionMessage(e), "\n"), file = stderr())
+          list(efficiency=NA, lambda0=NA, p0=NA)
+        })
+        list(m$efficiency, m$lambda0, m$p0)
+      }]
+    }))
+    setkeyv(data.gen, group.key)
+    
+    # Correct for unobserved UMIs
+    data.gen[, n.tot.unshrunken := ifelse(is.finite(p0.unshrunken),
+                                          n / ((1 - p0.unshrunken)^group.size),
+                                          NA) ]
+  }
+  
   # Between-groups variance of groupwise mean/variance XXX 1:500
   mean.intergroup.var <- data.gen[order(n, decreasing=TRUE), var(mean.withingroup, na.rm=TRUE)]
   var.intergroup.var <- data.gen[order(n, decreasing=TRUE), var(var.withingroup, na.rm=TRUE)]
@@ -354,24 +384,27 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, ctr
   if (shrink.only)
     return(data.gen)
   
-  # Use method of moments to find model parameters. If we're told to use more than one core,
-  # the parallel package's mclapply is used to distribution the work
+  # Use method of moments to find model parameters.
   data.gen.keys <- do.call(mapply, c(list(list), data.gen[, ..group.key], list(SIMPLIFY=FALSE)))
-  my.lapply <- if (cores > 1) {
-    function(...) { mclapply(..., mc.cores=cores, mc.preschedule=TRUE, mc.cleanup=TRUE) }
-  } else {
-    lapply
-  }
   data.gen <- rbindlist(my.lapply(data.gen.keys, function(k) {
     data.gen[k,][, c('efficiency', 'lambda0', 'p0') := {
-      m <- gwpcrpois.mom(mean, var, threshold=threshold, molecules=molecules, ctrl=ctrl)
+      m <- tryCatch({
+        gwpcrpois.mom(mean, var, threshold=threshold, molecules=molecules, ctrl=ctrl)
+      }, error=function(e) {
+        cat(paste0("Failed to solve for parameters for group (",
+                   paste0(lapply(k, as.character), collapse=","),
+                   "): ", conditionMessage(e), "\n"), file = stderr())
+        list(efficiency=NA, lambda0=NA, p0=NA)
+      })
       list(m$efficiency, m$lambda0, m$p0)
     }]
   }))
   setkeyv(data.gen, group.key)
   
   # Correct for unobserved UMIs
-  data.gen[, n.tot := ifelse(n >= 2, n / (1 - p0), n) ]
+  data.gen[, n.tot := ifelse(is.finite(p0),
+                             n / ((1 - p0)^group.size),
+                             NA) ]
 
   # Return data
   return(data.gen)
