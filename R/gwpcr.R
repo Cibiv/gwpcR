@@ -76,43 +76,60 @@ NULL
 #' @rdname gwpcr
 #' @useDynLib gwpcR gwpcr_simulate_c
 #' @export
-rgwpcr <- function(n, efficiency, molecules=1, cycles=NA) {
-  if (!is.numeric(efficiency) || (length(efficiency) != 1) || (efficiency <= 0) || (efficiency > 1))
-    stop('efficiency must be a numeric scalar within (0,1]')
+rgwpcr <- function(n, efficiency, molecules=1, cycles=Inf) {
+  if (!is.numeric(efficiency) || (length(efficiency) != 1) || (efficiency < 0) || (efficiency > 1))
+    stop('efficiency must be a numeric scalar within [0,1]')
   if (!is.numeric(molecules) || (length(molecules) != 1) || (molecules != floor(molecules)) || (molecules < 1))
     stop('molecules must be a positive integral scalar')
-
-  # Determine how many cycles are necessary on average to produce 1e6 molecules.
-  # After that point, we assume that the additional variability is negligible.
-  if (is.na(cycles))
-    cycles <- ceiling(log(1e6 / molecules)/log(1+efficiency))
-
-  # Start with initial copy number
-  if (efficiency < 1.0) {
-    # Flip a coin for each molecule in each sample to determine whether its
-    # copied. That can be done efficiently by sampling from a binomial
-    # distribution for each sample.gwpcrpois_simulate_c Note: Since this
-    # requires looping over all samples, the code was translated to C. See
-    # gwpcr_simulate in simulate.c.
-    if (TRUE)
-      .C(gwpcr_simulate_c,
-         nsamples=as.integer(n),
-         samples=double(n),
-         efficiency=as.double(efficiency),
-         molecules=as.double(molecules),
-         cycles=as.integer(cycles),
-         NAOK=TRUE)$samples
-    else {
-      s <- rep(1.0, n)
-      for(i in 1:cycles) {
-        sp <- sapply(s, FUN=function(z) { rbinom(n=1, size=z, prob=efficiency) })
-        s <- s + sp
-      }
-      s / (molecules * (1+efficiency)**cycles)
-    }
+  if (!is.numeric(cycles) || (length(cycles) != 1) || (cycles != floor(cycles)) || (cycles < 0))
+    stop('cycles must be a positive integral scalar or +Infinity')
+  
+  # Determine a suitable cycle count if set to "Infinity", which we take
+  # to mean "as many as necessary so that the results are virtually
+  # indistinguishable from the limit case
+  method <- if (is.infinite(cycles) && (efficiency >= E.MIN)) {
+    # Determine how many cycles are necessary on average to produce 1e6
+    # molecules. After that point, we assume that the additional variability
+    # is negligible.
+    cycles <- ceiling(log(1e6 / molecules) / log(1+efficiency))
+    "simulate"
+  } else if (is.infinite(cycles) && (efficiency < E.MIN)) {
+    # Instead of simulating the PCR process, generate samples using the
+    # gamma approximation of the PCR distribution
+    "gamma"
+  } else if (is.finite(cycles)) {
+    # For finitely many cycles, always simulate
+    "simulate"
   }
-  else
+  else {
+    # Should never happen
+    NA
+  }
+  
+  # Generate samples of lambda
+  if ((method == "simulate") && (efficiency < 1.0)) {
+    # Generate read counts by sampling from the PCR-Poisson distribution
+    .C(gwpcr_simulate_c,
+       nsamples=as.integer(n),
+       samples=double(n),
+       efficiency=as.double(efficiency),
+       molecules=as.double(molecules),
+       cycles=as.integer(cycles),
+       NAOK=TRUE)$samples
+  } else if ((method == "simulate") && (efficiency == 1.0)) {
     rep(1.0, n)
+  } else if (method == "gamma") {
+    # Generate read counts by replacing the PCR distribution with its gamma
+    # approximation. The gamma parameters are chosen to produce a distribution
+    # with mean 1 and
+    #               1 - E     1
+    #   Var( L ) = ------- * ---,
+    #               1 + E     m
+    # which matches the variance of the true distribution (see gwpcr.sd).
+    g.par <- molecules * (1+efficiency) / (1-efficiency)
+    rgamma(n, shape=g.par, rate=g.par)
+  } else
+    stop(paste0("Unknown method ", method))
 }
 
 #' @rdname gwpcr

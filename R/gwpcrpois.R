@@ -29,23 +29,41 @@ NULL
 #' @rdname gwpcrpois
 #' @useDynLib gwpcR gwpcrpois_simulate_c
 #' @export
-rgwpcrpois <- function(n, efficiency, lambda0, threshold=1, molecules=1, cycles=NA) {
-  if (!is.numeric(efficiency) || (length(efficiency) != 1) || (efficiency <= 0) || (efficiency > 1))
-    stop('efficiency must be a numeric scalar within (0,1]')
+rgwpcrpois <- function(n, efficiency, lambda0, threshold=1, molecules=1, cycles=Inf) {
+  if (!is.numeric(efficiency) || (length(efficiency) != 1) || (efficiency < 0) || (efficiency > 1))
+    stop('efficiency must be a numeric scalar within [0,1]')
   if (!is.numeric(lambda0) || (length(lambda0) != 1) || (lambda0 <= 0))
     stop('lambda0 must be a numeric scalar within (0,Infinity)')
   if (!is.numeric(threshold) || (length(threshold) != 1) || (threshold != floor(threshold)) || (threshold < 0))
     stop('threshold must be a non-negative integral scalar')
   if (!is.numeric(molecules) || (length(molecules) != 1) || (molecules != floor(molecules)) || (molecules < 1))
     stop('molecules must be a positive integral scalar')
-
-  # Determine how many cycles are necessary on average to produce 1e6
-  # molecules. After that point, we assume that the additional variability
-  # is negligible.
-  if (is.na(cycles))
+  if (!is.numeric(cycles) || (length(cycles) != 1) || (cycles != floor(cycles)) || (cycles < 0))
+    stop('cycles must be a positive integral scalar or +Infinity')
+  
+  # Determine a suitable cycle count if set to "Infinity", which we take
+  # to mean "as many as necessary so that the results are virtually
+  # indistinguishable from the limit case
+  method <- if (is.infinite(cycles) && (efficiency >= E.MIN)) {
+    # Determine how many cycles are necessary on average to produce 1e6
+    # molecules. After that point, we assume that the additional variability
+    # is negligible.
     cycles <- ceiling(log(1e6 / molecules) / log(1+efficiency))
+    "simulate"
+  } else if (is.infinite(cycles) && (efficiency < E.MIN)) {
+    # Instead of simulating the PCR process, generate samples using the
+    # gamma approximation of the PCR distribution
+    "gamma"
+  } else if (is.finite(cycles)) {
+    # For finitely many cycles, always simulate
+    "simulate"
+  }
+  else {
+    # Should never happen
+    NA
+  }
 
-    # Determine probability of a sample being accepted (i.e., of being >= threshold)
+  # Determine probability of a sample being accepted (i.e., of being >= threshold)
   p.th <- if (threshold > 0)
     1.0 - pgwpcrpois(threshold-1, efficiency=efficiency, lambda0=lambda0,
                      threshold=0, molecules=molecules)
@@ -62,15 +80,27 @@ rgwpcrpois <- function(n, efficiency, lambda0, threshold=1, molecules=1, cycles=
     # more than one iteration.
     k <- ceiling((n - j) / p.th)
     k <- ceiling(k + 3*sqrt(k*p.th*(1-p.th)))
-    # Generate lambda values for samples by sampling from the PCR distribution
-    s.c <- .C(gwpcrpois_simulate_c,
-              nsamples=as.integer(k),
-              samples=double(k),
-              efficiency=as.double(efficiency),
-              lambda0=as.double(lambda0),
-              molecules=as.double(molecules),
-              ncycles=as.integer(cycles),
-              NAOK=TRUE)$samples
+    
+    s.c <- if (method == "simulate") {
+      # Generate read counts by sampling from the PCR-Poisson distribution
+      .C(gwpcrpois_simulate_c,
+         nsamples=as.integer(k),
+         samples=double(k),
+         efficiency=as.double(efficiency),
+         lambda0=as.double(lambda0),
+         molecules=as.double(molecules),
+         ncycles=as.integer(cycles),
+         NAOK=TRUE)$samples
+    } else if (method == "gamma") {
+      # Generate read counts by replacing the PCR distribution with its gamma
+      # approximation. Note that mixing Poisson distribution with Gamma rates
+      # yields a Negative Binomial distribution with parameters (see also gwpcr.sd)
+      nb.size <- 1/gwpcr.sd(efficiency, molecules)^2
+      nb.prob <- nb.size / (nb.size + lambda0)
+      rnbinom(n, size=nb.size, prob=nb.prob)
+    } else
+      stop(paste0("Unknown method ", method))
+
     # Remove samples below threshold, and determine how many to use
     s.c <- s.c[s.c >= threshold]
     if (length(s.c) == 0)
