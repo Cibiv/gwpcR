@@ -9,7 +9,7 @@
 \alias{pgwpcr}
 \title{Binomial Galton-Watson Model for the Polymerase Chain Reaction (PCR)}
 \usage{
-rgwpcr(n, efficiency, molecules = 1, cycles = NA)
+rgwpcr(n, efficiency, molecules = 1, cycles = Inf)
 
 dgwpcr(l, efficiency, molecules = 1)
 
