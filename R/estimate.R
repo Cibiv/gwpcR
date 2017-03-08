@@ -260,7 +260,7 @@ gwpcrpois.mle <- function(c, threshold=1, molecules=1) {
        molecules=molecules)
 }
 
-#' Shrinkage Estimator for Individual Parameters of PCR-Poisson Mixture
+#' Shrinkage Estimator for Individual Parameters of PCR-Poisson Mixture (OLD VERSION)
 #' 
 #' Low-noise estimates of \var{efficiency} and \var{lambda0} for subsets of the
 #' data (e.g.' for individual genes of an RNA-Seq experiment), even if those
@@ -271,7 +271,7 @@ gwpcrpois.mle <- function(c, threshold=1, molecules=1) {
 #' @inheritParams gwpcrpois
 #'
 #' @export
-gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, group.size=1, ctrl=list()) {
+gwpcrpois.mom.groupwise.old <- function(formula, data, threshold=1, molecules=1, clique.size=1, ctrl=list()) {
   # Get control parameters
   ctrl.get <- function(key, default) {
     r <- ctrl[[key]]
@@ -288,7 +288,7 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, gro
   }
   shrink.only <- as.logical(ctrl.get("shrink.only", FALSE))
   include.unshrunken.estimates <- as.logical(ctrl.get("include.unshrunken.estimates", FALSE))
-
+  
   # Subset data to have the "count" column (left side of formula) as the first column,
   # followed by the key columns defining the groups (e.g. the gene name, but can be more
   # than one).
@@ -346,7 +346,7 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, gro
     
     # Correct for unobserved UMIs
     data.gen[, n.tot.unshrunken := ifelse(is.finite(p0.unshrunken),
-                                          n / ((1 - p0.unshrunken)^group.size),
+                                          n / ((1 - p0.unshrunken)^clique.size),
                                           NA) ]
   }
   
@@ -378,7 +378,7 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, gro
                     (var.withingroup * var.intergroup.var + var.global * var.withingroup.stderr) /
                       (var.intergroup.var + var.withingroup.stderr),
                     var.global) ]
-
+  
   # If we're only supposed to compute shrunken estimates of mean and variance,
   # we're done here.
   if (shrink.only)
@@ -403,7 +403,166 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, gro
   
   # Correct for unobserved UMIs
   data.gen[, n.tot := ifelse(is.finite(p0),
-                             n / ((1 - p0)^group.size),
+                             n / ((1 - p0)^clique.size),
+                             NA) ]
+  
+  # Return data
+  return(data.gen)
+}
+
+#' Shrinkage Estimator for Individual Parameters of PCR-Poisson Mixture
+#' 
+#' Low-noise estimates of \var{efficiency} and \var{lambda0} for subsets of the
+#' data (e.g.' for individual genes of an RNA-Seq experiment), even if those
+#' subsets contain only few UMIs.
+#' 
+#' XXX
+#'
+#' @inheritParams gwpcrpois
+#'
+#' @export
+gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, clique.size=1, ctrl=list()) {
+  # Get control parameters
+  ctrl.get <- function(key, default) {
+    r <- ctrl[[key]]
+    if (!is.null(r))
+      r
+    else
+      default
+  }
+  cores <- as.numeric(ctrl.get("cores", 1))
+  my.lapply <- if (cores > 1) {
+    function(...) { mclapply(..., mc.cores=cores, mc.preschedule=TRUE, mc.cleanup=TRUE) }
+  } else {
+    lapply
+  }
+  verbose <- as.logical(ctrl.get("verbose", FALSE))
+  
+  # Subset data to have the "count" column (left side of formula) as the first column,
+  # followed by the key columns defining the groups (e.g. the gene name, but can be more
+  # than one).
+  data.f <- data.table(model.frame(formula, data))
+  group.key <- labels(terms(formula))
+  colnames(data.f)[1] <- "count"
+  data.th <- data.f[count >= threshold, ]
+  setkeyv(data.th, group.key)
+  
+  # Compute global parameter estimates
+  if (verbose)
+    message("Computing overall parameter estimates")
+  mean.all = data.th[, mean(count)]
+  var.all = data.th[, var(count)]
+  m.all <- gwpcrpois.mom(mean.all, var.all,
+                            threshold=threshold, molecules=molecules,
+                            ctrl=ctrl)
+  
+  # Use the global estimates are starting point for further group-wise parameter estimation
+  ctrl$initial <- m.all
+  
+  # Compute raw (group-wise) mean and variance estimates, add global estimates are columns
+  if (verbose)
+    message("Aggregating data per group")
+  data.gen <- data.th[data.f[, list(dummy=1), by=group.key]
+                      , list(mean.all=mean.all,
+                             var.all=var.all,
+                             efficiency.all=m.all$efficiency,
+                             lambda0.all=m.all$lambda0,
+                             p0.all=m.all$p0,
+                             mean.raw=mean(count),
+                             var.raw=var(count),
+                             n=.N)
+                      , on=group.key, by=.EACHI]
+  setkeyv(data.gen, group.key)
+  
+  # Compute raw (group-wise) parameter estimates
+  if (verbose)
+    message("Computing group-wise parameter estimates on ", cores, " cores")
+  data.gen.keys <- do.call(mapply, c(list(list), data.gen[, ..group.key], list(SIMPLIFY=FALSE)))
+  data.gen <- rbindlist(my.lapply(data.gen.keys, function(k) {
+    data.gen[k,][, c('efficiency.raw', 'lambda0.raw', 'p0.raw') := {
+      m <- tryCatch({
+        if (is.finite(mean.raw) && is.finite(var.raw))
+          gwpcrpois.mom(mean.raw, var.raw, threshold=threshold, molecules=molecules, ctrl=ctrl)
+        else
+          list(efficiency=NA, lambda0=NA, p0=NA)
+      }, error=function(e) {
+        cat(paste0("Failed to solve for unshrunken parameters for group (",
+                   paste0(lapply(k, as.character), collapse=","),
+                   "): ", conditionMessage(e), "\n"), file = stderr())
+        list(efficiency=NA, lambda0=NA, p0=NA)
+      })
+      list(m$efficiency, m$lambda0, m$p0)
+    }]
+  }))
+  setkeyv(data.gen, group.key)
+  
+  # Estimate variance of p_0^raw as a function of the number of observed UMIs n.
+  # We assume that p_0^raw | n ~ Beta( a(n), b(n) ), with a fixed expectation m and
+  # n-dependent variance comprising a estimation error that decreases with 1/n and a
+  # constant part that reflects the variance of p0 between groups,
+  #
+  #        raw
+  #    V( p    | n) = v(n) = v + v  /  n. 
+  #        0                  g   e
+  #
+  # From the mean and variance of the Beta distribution it follows that
+  #
+  #                                                      m * (1 - m)
+  #   a(n) = m * f(n), b(n) = (1-m) * f(n) where f(n) = ------------- - 1.
+  #                                                           v
+  #                                                            e
+  #                                                       v + ---
+  #                                                        g   n
+  #
+  # For m we used the sample mean over all genes, and for v_g and v_e ML estimates
+  # found using numerical optimzation. We start the numerical search with
+  # v_g = v_e = v/2, where v is the sampling variance of p0 over all genes (limited
+  # to the possible range (0, m * (1 - m) ).
+  if (verbose)
+    message("Estimating variances of p0.raw")
+  m <- data.gen[, mean(p0.raw, na.rm=TRUE) ]
+  v <- data.gen[, min(var(p0.raw, na.rm=TRUE), m * (1-m) * 0.9)]
+  logl <- function(p) {
+    # Reject invalid parameters ( minimal n = 1, hence v_g + v_e < m * (1-m) ).
+    if (any(p <=0) || (sum(p) >= m * (1-m)))
+      return(NA)
+    # Compute quantity to minimize, i.e. negative log-liklihood
+    data.gen[is.finite(p0.raw), {
+      f <- m * (1-m) / (p["v_g"] + p["v_e"] / n) - 1
+      -sum(dbeta(p0.raw, shape1=m*f, shape2=(1-m)*f, log=TRUE))
+    } ]
+  }
+  r <- optim(fn=logl, par=c(v_g=v/2, v_e=v/2), method="Nelder-Mead")
+  v_g <- r$par["v_g"]
+  v_e <- r$par["v_e"]
+  data.gen[, p0.raw.var := v_e / n]
+  data.gen[, p0.grp.var := v_g]
+  
+  # Compute shrunken estimates of p0, i.e.
+  # 
+  #         all   v_e      raw
+  #        p    * ---  +  p    * v_g 
+  #         0      n       0
+  #   p = -----------------------------------.
+  #    0          v_e
+  #               ---  +  v_g
+  #                n
+  #
+  if (verbose)
+    message("Computing final (shrinkage) estimates for p0")
+  data.gen[, p0 := (p0.all * p0.raw.var + p0.raw * p0.grp.var) / (p0.raw.var + p0.grp.var) ]
+  
+  # Correct for unobserved UMIs, i.e. compute
+  #                    n
+  #   n   = -----------------------
+  #    tot   (1 - p_0^)^cliquesize
+  #
+  # cliquesize is the number of molecules that are subjected to thresholding
+  # together, i.e. ALL of them are dropped if ANY has a read count below the threshold.
+  if (verbose)
+    message("Computing n.tot")
+  data.gen[, n.tot := ifelse(is.finite(p0),
+                             n / ((1 - p0)^clique.size),
                              NA) ]
 
   # Return data
