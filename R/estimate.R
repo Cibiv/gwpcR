@@ -453,8 +453,8 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, cli
   mean.all = data.th[, mean(count)]
   var.all = data.th[, var(count)]
   m.all <- gwpcrpois.mom(mean.all, var.all,
-                            threshold=threshold, molecules=molecules,
-                            ctrl=ctrl)
+                         threshold=threshold, molecules=molecules,
+                         ctrl=ctrl)
   
   # Use the global estimates are starting point for further group-wise parameter estimation
   ctrl$initial <- m.all
@@ -496,7 +496,9 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, cli
   }))
   setkeyv(data.gen, group.key)
   
-  # Estimate variance of p_0^raw as a function of the number of observed UMIs n.
+  # Estimate variance of p_0^raw (and also lambda0^raw, efficiency^raw) as a function
+  # of the number of observed UMIs n.
+  #
   # We assume that p_0^raw | n ~ Beta( a(n), b(n) ), with a fixed expectation m and
   # n-dependent variance comprising a estimation error that decreases with 1/n and a
   # constant part that reflects the variance of p0 between groups,
@@ -518,27 +520,59 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, cli
   # found using numerical optimzation. We start the numerical search with
   # v_g = v_e = v/2, where v is the sampling variance of p0 over all genes (limited
   # to the possible range (0, m * (1 - m) ).
-  if (verbose)
-    message("Estimating variances of p0.raw")
-  m <- data.gen[, mean(p0.raw, na.rm=TRUE) ]
-  v <- data.gen[, min(var(p0.raw, na.rm=TRUE), m * (1-m) * 0.9)]
-  logl <- function(p) {
-    # Reject invalid parameters ( minimal n = 1, hence v_g + v_e < m * (1-m) ).
-    if (any(p <=0) || (sum(p) >= m * (1-m)))
-      return(NA)
+  #
+  # efficiency^raw is handled similarly. For lambda0^raw, the beta distribution
+  # is replaced by a normal distribution.
+  variance.estimates.beta <- function(x.name) {
+    if (verbose)
+      message("Estimating variances of ", x.name)
+    x <- parse(text=paste0(x.name, ".raw"))
+    m <- data.gen[, mean(eval(x), na.rm=TRUE) ]
+    v <- data.gen[, min(var(eval(x), na.rm=TRUE), m * (1-m) * 0.9)]
     # Compute quantity to minimize, i.e. negative log-liklihood
-    data.gen[is.finite(p0.raw), {
-      f <- m * (1-m) / (p["v_g"] + p["v_e"] / n) - 1
-      -sum(dbeta(p0.raw, shape1=m*f, shape2=(1-m)*f, log=TRUE))
-    } ]
+    # We contract "x" a bit towards 0.5 to ensure that all values are strictly
+    # greater than 0 and less than 1 -- otherwise, the log-likelihood becomes -Inf.
+    # M is the contraction factor, i.e. we move X to the interval [M/2, 1-M/2]
+    M <- 1e-6
+    logl <- function(p) {
+      # Reject invalid parameters ( minimal n = 1, hence v_g + v_e < m * (1-m) ).
+      if (any(p <= 0) || (sum(p) >= m * (1-m)))
+        return(NA)
+      -sum(data.gen[is.finite(eval(x)) & (n > 0), {
+        f <- m * (1-m) / (p["v_g"] + p["v_e"] / n) - 1
+        dbeta(M/2 + eval(x)*(1-M), shape1=m*f, shape2=(1-m)*f, log=TRUE)
+      }])
+    }
+    r <- optim(fn=logl, par=c(v_g=v/2, v_e=v/2), method="Nelder-Mead")
+    # Correct variances for the previous contraction
+    v_g <- r$par["v_g"] / (1-M)^2
+    v_e <- r$par["v_e"] / (1-M)^2
+    # Add columns
+    data.gen[, paste0(x.name, ".raw.var") := v_e / n]
+    data.gen[, paste0(x.name, ".grp.var") := v_g]
   }
-  r <- optim(fn=logl, par=c(v_g=v/2, v_e=v/2), method="Nelder-Mead")
-  v_g <- r$par["v_g"]
-  v_e <- r$par["v_e"]
-  data.gen[, p0.raw.var := v_e / n]
-  data.gen[, p0.grp.var := v_g]
+  variance.estimates.normal <- function(x.name) {
+    if (verbose)
+      message("Estimating variances of ", x.name)
+    x <- parse(text=paste0(x.name, ".raw"))
+    m <- data.gen[, mean(eval(x), na.rm=TRUE) ]
+    v <- data.gen[, var(eval(x), na.rm=TRUE) ]
+    # Compute quantity to minimize, i.e. negative log-liklihood
+    logl <- function(p) {
+      -sum(data.gen[is.finite(eval(x)) & (n > 0),
+        dnorm(eval(x), mean=m, sd=sqrt(p["v_g"] + p["v_e"] / n), log=TRUE)
+      ])
+    }
+    r <- optim(fn=logl, par=c(v_g=v/2, v_e=v/2), method="Nelder-Mead")
+    # Add columns
+    data.gen[, paste0(x.name, ".raw.var") := r$par["v_e"] / n ]
+    data.gen[, paste0(x.name, ".grp.var") := r$par["v_g"] ]
+  }
+  variance.estimates.beta("p0")
+  variance.estimates.beta("efficiency")
+  variance.estimates.normal("lambda0")
   
-  # Compute shrunken estimates of p0, i.e.
+  # Compute shrunken estimates of p0, efficiency and lambda0 i.e.
   # 
   #         all   v_e      raw
   #        p    * ---  +  p    * v_g 
@@ -548,9 +582,16 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, cli
   #               ---  +  v_g
   #                n
   #
+  # and similarly for the other two quantities
   if (verbose)
-    message("Computing final (shrinkage) estimates for p0")
+    message("Computing final parameter estimates")
   data.gen[, p0 := (p0.all * p0.raw.var + p0.raw * p0.grp.var) / (p0.raw.var + p0.grp.var) ]
+  data.gen[, efficiency := (efficiency.all * efficiency.raw.var + efficiency.raw * efficiency.grp.var) / (efficiency.raw.var + efficiency.grp.var) ]
+  data.gen[, lambda0 := (lambda0.all * lambda0.raw.var + lambda0.raw * lambda0.grp.var) / (lambda0.raw.var + lambda0.grp.var) ]
+  # If the local estimate is NA, use the global one
+  data.gen[!is.finite(p0), p0 := p0.all ]
+  data.gen[!is.finite(efficiency), efficiency := efficiency.all ]
+  data.gen[!is.finite(lambda0), lambda0 := lambda0.all ]
   
   # Correct for unobserved UMIs, i.e. compute
   #                    n
