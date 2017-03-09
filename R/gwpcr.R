@@ -77,6 +77,8 @@ NULL
 #' @useDynLib gwpcR gwpcr_simulate_c
 #' @export
 rgwpcr <- function(n, efficiency, molecules=1, cycles=Inf) {
+  if (!is.numeric(n) || (length(n) != 1) || (n != floor(n)) || (n < 0))
+    stop('n must be a non-negative integral scalar')
   if (!is.numeric(efficiency) || (length(efficiency) != 1) || (efficiency < 0) || (efficiency > 1))
     stop('efficiency must be a numeric scalar within [0,1]')
   if (!is.numeric(molecules) || (length(molecules) != 1) || (molecules != floor(molecules)) || (molecules < 1))

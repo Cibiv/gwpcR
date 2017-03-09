@@ -30,6 +30,8 @@ NULL
 #' @useDynLib gwpcR gwpcrpois_simulate_c
 #' @export
 rgwpcrpois <- function(n, efficiency, lambda0, threshold=1, molecules=1, cycles=Inf) {
+  if (!is.numeric(n) || (length(n) != 1) || (n != floor(n)) || (n < 0))
+    stop('n must be a non-negative integral scalar')
   if (!is.numeric(efficiency) || (length(efficiency) != 1) || (efficiency < 0) || (efficiency > 1))
     stop('efficiency must be a numeric scalar within [0,1]')
   if (!is.numeric(lambda0) || (length(lambda0) != 1) || (lambda0 <= 0))
@@ -72,7 +74,7 @@ rgwpcrpois <- function(n, efficiency, lambda0, threshold=1, molecules=1, cycles=
 
   # Sample until we have enough samples
   j <- 0
-  r <- rep(as.double(NA), j)
+  r <- rep(as.double(NA), n)
   while(j < n) {
     # Compute number of samples generate, taking the average acception rate p.th
     # into account, as well as the fluctuations around that rate, which are binomial.
@@ -97,7 +99,7 @@ rgwpcrpois <- function(n, efficiency, lambda0, threshold=1, molecules=1, cycles=
       # yields a Negative Binomial distribution with parameters (see also gwpcr.sd)
       nb.size <- 1/gwpcr.sd(efficiency, molecules)^2
       nb.prob <- nb.size / (nb.size + lambda0)
-      rnbinom(n, size=nb.size, prob=nb.prob)
+      rnbinom(k, size=nb.size, prob=nb.prob)
     } else
       stop(paste0("Unknown method ", method))
 
@@ -105,11 +107,12 @@ rgwpcrpois <- function(n, efficiency, lambda0, threshold=1, molecules=1, cycles=
     s.c <- s.c[s.c >= threshold]
     if (length(s.c) == 0)
       next
-    c <- min(length(s.c), n - j)
+    l <- min(length(s.c), n - j)
     # Append to output
-    stopifnot(c > 0)
-    r[(j+1):(j+c)] <- head(s.c, c)
-    j <- j + c
+    stopifnot(l > 0)
+    stopifnot(length(r[(j+1):(j+l)]) == l)
+    r[(j+1):(j+l)] <- head(s.c, l)
+    j <- j + l
   }
 
   r
