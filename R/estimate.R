@@ -486,7 +486,7 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, cli
         else
           list(efficiency=NA, lambda0=NA, p0=NA)
       }, error=function(e) {
-        cat(paste0("Failed to solve for unshrunken parameters for group (",
+        cat(paste0("Failed to solve parameters for group (",
                    paste0(lapply(k, as.character), collapse=","),
                    "): ", conditionMessage(e), "\n"), file = stderr())
         list(efficiency=NA, lambda0=NA, p0=NA)
@@ -559,6 +559,9 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, cli
     v <- data.gen[, var(eval(x), na.rm=TRUE) ]
     # Compute quantity to minimize, i.e. negative log-liklihood
     logl <- function(p) {
+      # Reject invalid parameters
+      if (any(p < 0))
+        return(NA)
       -sum(data.gen[is.finite(eval(x)) & (n > 0),
         dnorm(eval(x), mean=m, sd=sqrt(p["v_g"] + p["v_e"] / n), log=TRUE)
       ])
