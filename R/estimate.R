@@ -507,7 +507,7 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, cli
   #    V( p    | n) = v(n) = v + v  /  n. 
   #        0                  g   e
   #
-  # From the mean and variance of the Beta distribution it follows that
+  # From the mean (assumed constant) and variance of the Beta distribution it follows that
   #
   #                                                      m * (1 - m)
   #   a(n) = m * f(n), b(n) = (1-m) * f(n) where f(n) = ------------- - 1.
@@ -527,27 +527,28 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, cli
     if (verbose)
       message("Estimating variances of ", x.name)
     x <- parse(text=paste0(x.name, ".raw"))
+    # For the mean use the sampling mean, since we assume it's independent of n
     m <- data.gen[, mean(eval(x), na.rm=TRUE) ]
-    v <- data.gen[, min(var(eval(x), na.rm=TRUE), m * (1-m) * 0.9)]
     # Compute quantity to minimize, i.e. negative log-liklihood
     # We contract "x" a bit towards 0.5 to ensure that all values are strictly
     # greater than 0 and less than 1 -- otherwise, the log-likelihood becomes -Inf.
     # M is the contraction factor, i.e. we move X to the interval [M/2, 1-M/2]
     M <- 1e-6
     logl <- function(p) {
-      # Reject invalid parameters ( minimal n = 1, hence v_g + v_e < m * (1-m) ).
-      if (any(p <= 0) || (sum(p) >= m * (1-m)))
+      # Reject invalid parameters. Note that the beta variance is always <= m * (1-m).
+      if (any(p <= 0) || (p["v_g"] >= m * (1-m)))
         return(NA)
+      # Evaluate likelihoods. We strict shape1,2 to >= 1 to ensure monomodality
       -sum(data.gen[is.finite(eval(x)) & (n > 0), {
-        # For the beta distribution, v < m * (1 - m). We go even further and restrict
-        # f to be >= 1, that should restrict the beta distribution to be mono-modal,
-        # which means restricting shape1, shape2 >= 1.
         f <- pmax(m * (1-m) / (p["v_g"] + p["v_e"] / n) - 1, 1/m, 1/(1-m))
-        # Evaludate log-likelihoods for all samples
         dbeta(M/2 + eval(x)*(1-M), shape1=m*f, shape2=(1-m)*f, log=TRUE)
       }])
     }
-    r <- optim(fn=logl, par=c(v_g=v/2, v_e=v/2), method="Nelder-Mead")
+    # Optimize v_g and v_e. Initially, we split the total observed variance evenly
+    # between v_g and v_e / n for the smallest positive group size n.
+    v <- data.gen[, min(var(eval(x), na.rm=TRUE), m * (1-m) ) ]
+    n.min <- data.gen[n > 0, min(n) ]
+    r <- optim(fn=logl, par=c(v_g=v/2, v_e=n.min*v/2), method="Nelder-Mead")
     # Correct variances for the previous contraction
     v_g <- r$par["v_g"] / (1-M)^2
     v_e <- r$par["v_e"] / (1-M)^2
@@ -566,6 +567,7 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, cli
       # Reject invalid parameters
       if (any(p < 0))
         return(NA)
+      # Evaluate likelihoods
       -sum(data.gen[is.finite(eval(x)) & (n > 0),
         dnorm(eval(x), mean=m, sd=sqrt(p["v_g"] + p["v_e"] / n), log=TRUE)
       ])
