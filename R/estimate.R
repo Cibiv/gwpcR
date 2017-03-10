@@ -539,7 +539,11 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, cli
       if (any(p <= 0) || (sum(p) >= m * (1-m)))
         return(NA)
       -sum(data.gen[is.finite(eval(x)) & (n > 0), {
-        f <- m * (1-m) / (p["v_g"] + p["v_e"] / n) - 1
+        # For the beta distribution, v < m * (1 - m). We go even further and restrict
+        # f to be >= 1, that should restrict the beta distribution to be mono-modal,
+        # which means restricting shape1, shape2 >= 1.
+        f <- pmax(m * (1-m) / (p["v_g"] + p["v_e"] / n) - 1, 1/m, 1/(1-m))
+        # Evaludate log-likelihoods for all samples
         dbeta(M/2 + eval(x)*(1-M), shape1=m*f, shape2=(1-m)*f, log=TRUE)
       }])
     }
