@@ -75,7 +75,7 @@
 #' @seealso \code{\link{gwpcrpois}}
 #'
 #' @export
-gwpcrpois.mom <- function(mean, var, threshold=1, molecules=1, ctrl=list()) {
+gwpcrpois.mom <- function(mean, var, threshold=1, molecules=1, ctrl=list(), nonconvergence.is.error=FALSE) {
   if (!is.numeric(mean) || (length(mean) != 1) || (mean <= 0) || (mean >= Inf))
     stop('mean must be a strictly positive numeric scalar')
   if (!is.numeric(var) || (length(var) != 1) || (var <= 0) || (var >= Inf))
@@ -203,8 +203,12 @@ gwpcrpois.mom <- function(mean, var, threshold=1, molecules=1, ctrl=list()) {
   if (trace)
     cat(paste0("Convergence: ", if (convergence == 0) "Yes" else "No"))
 
-  if (convergence != 0)
-    warning("gwpcrpois.mom did not converge, returning best estimate so far")
+  if (convergence != 0) {
+    if (nonconvergence.is.error)
+      stop("gwpcrpois.mom did not converge")
+    else
+      warning("gwpcrpois.mom did not converge, returning best estimate so far")
+  }
 
   # Return results
   return(list(lambda0=lambda0, efficiency=efficiency, pdetect=pdetect, p0=1-pdetect,
@@ -332,7 +336,8 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, cli
     data.gen[k,][, c('efficiency.raw', 'lambda0.raw', 'p0.raw') := {
       m <- tryCatch({
         if (is.finite(mean.raw) && is.finite(var.raw))
-          gwpcrpois.mom(mean.raw, var.raw, threshold=threshold, molecules=molecules, ctrl=ctrl)
+          gwpcrpois.mom(mean.raw, var.raw, threshold=threshold, molecules=molecules,
+                        ctrl=ctrl, nonconvergence.is.error=TRUE)
         else
           list(efficiency=NA, lambda0=NA, p0=NA)
       }, error=function(e) {
