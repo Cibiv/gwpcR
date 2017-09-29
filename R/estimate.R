@@ -275,7 +275,7 @@ gwpcrpois.mle <- function(c, threshold=1, molecules=1) {
 #' @inheritParams gwpcrpois
 #'
 #' @export
-gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, clique.size=1, ctrl=list()) {
+gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, loss=expression(p0), ctrl=list()) {
   # Get control parameters
   ctrl.get <- function(key, default) {
     r <- ctrl[[key]]
@@ -309,7 +309,15 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, cli
   m.all <- gwpcrpois.mom(mean.all, var.all,
                          threshold=threshold, molecules=molecules,
                          ctrl=ctrl)
-  
+  eval.loss.env <- new.env(parent=parent.frame())
+  eval.loss <- function(efficiency, lambda0, p0) {
+    eval.loss.env$efficiency <- efficiency
+    eval.loss.env$lambda0 <- lambda0
+    eval.loss.env$p0 <- p0
+    tryCatch(eval(loss, envir=eval.loss.env),
+             error=function(e) { warning(conditionMessage(e)) ; NA})
+  }
+
   # Use the global estimates are starting point for further group-wise parameter estimation
   ctrl$initial <- m.all
   
@@ -321,7 +329,7 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, cli
                              var.all=var.all,
                              efficiency.all=m.all$efficiency,
                              lambda0.all=m.all$lambda0,
-                             p0.all=m.all$p0,
+                             loss.all=eval.loss(m.all$efficiency, m.all$lambda0, m.all$p0),
                              mean.raw=mean(count),
                              var.raw=var(count),
                              n=.N)
@@ -333,20 +341,20 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, cli
     message("Computing group-wise parameter estimates on ", cores, " cores")
   data.gen.keys <- do.call(mapply, c(list(list), data.gen[, ..group.key], list(SIMPLIFY=FALSE)))
   data.gen <- rbindlist(my.lapply(data.gen.keys, function(k) {
-    data.gen[k,][, c('efficiency.raw', 'lambda0.raw', 'p0.raw') := {
-      m <- tryCatch({
-        if (is.finite(mean.raw) && is.finite(var.raw))
-          gwpcrpois.mom(mean.raw, var.raw, threshold=threshold, molecules=molecules,
-                        ctrl=ctrl, nonconvergence.is.error=TRUE)
-        else
-          list(efficiency=NA, lambda0=NA, p0=NA)
+    data.gen[k,][, c('efficiency.raw', 'lambda0.raw', 'loss.raw') := {
+      tryCatch({
+        if (is.finite(mean.raw) && is.finite(var.raw)) {
+          m <- gwpcrpois.mom(mean.raw, var.raw, threshold=threshold, molecules=molecules,
+                             ctrl=ctrl, nonconvergence.is.error=TRUE)
+          list(m$efficiency, m$lambda0, eval.loss(m$efficiency, m$lambda0, m$p0))
+        } else
+          list(NA, NA, NA)
       }, error=function(e) {
         cat(paste0("Failed to solve parameters for group (",
                    paste0(lapply(k, as.character), collapse=","),
                    "): ", conditionMessage(e), "\n"), file = stderr())
-        list(efficiency=NA, lambda0=NA, p0=NA)
+        list(NA, NA, NA)
       })
-      list(m$efficiency, m$lambda0, m$p0)
     }]
   }))
   setkeyv(data.gen, group.key)
@@ -356,7 +364,7 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, cli
   #
   # We assume that p_0^raw | n ~ Beta( a(n), b(n) ), with a fixed expectation m and
   # n-dependent variance comprising a estimation error that decreases with 1/n and a
-  # constant part that reflects the variance of p0 between groups,
+  # constant part that reflects the variance of the loss between groups,
   #
   #        raw
   #    V( p    | n) = v(n) = v + v  /  n. 
@@ -373,7 +381,7 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, cli
   #
   # For m we used the sample mean over all genes, and for v_g and v_e ML estimates
   # found using numerical optimzation. We start the numerical search with
-  # v_g = v_e = v/2, where v is the sampling variance of p0 over all genes (limited
+  # v_g = v_e = v/2, where v is the sampling variance of the loss over all genes (limited
   # to the possible range (0, m * (1 - m) ).
   #
   # efficiency^raw is handled similarly. For lambda0^raw, the beta distribution
@@ -432,11 +440,11 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, cli
     data.gen[, paste0(x.name, ".raw.var") := r$par["v_e"] / n ]
     data.gen[, paste0(x.name, ".grp.var") := r$par["v_g"] ]
   }
-  variance.estimates.beta("p0")
+  variance.estimates.beta("loss")
   variance.estimates.beta("efficiency")
   variance.estimates.normal("lambda0")
   
-  # Compute shrunken estimates of p0, efficiency and lambda0 i.e.
+  # Compute shrunken estimates of loss, efficiency and lambda0 i.e.
   # 
   #         all   v_e      raw
   #        p    * ---  +  p    * v_g 
@@ -449,11 +457,11 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, cli
   # and similarly for the other two quantities
   if (verbose)
     message("Computing final parameter estimates")
-  data.gen[, p0 := (p0.all * p0.raw.var + p0.raw * p0.grp.var) / (p0.raw.var + p0.grp.var) ]
+  data.gen[, loss := (loss.all * loss.raw.var + loss.raw * loss.grp.var) / (loss.raw.var + loss.grp.var) ]
   data.gen[, efficiency := (efficiency.all * efficiency.raw.var + efficiency.raw * efficiency.grp.var) / (efficiency.raw.var + efficiency.grp.var) ]
   data.gen[, lambda0 := (lambda0.all * lambda0.raw.var + lambda0.raw * lambda0.grp.var) / (lambda0.raw.var + lambda0.grp.var) ]
   # If the local estimate is NA, use the global one
-  data.gen[!is.finite(p0), p0 := p0.all ]
+  data.gen[!is.finite(loss), loss := loss.all ]
   data.gen[!is.finite(efficiency), efficiency := efficiency.all ]
   data.gen[!is.finite(lambda0), lambda0 := lambda0.all ]
   
@@ -466,8 +474,8 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, cli
   # together, i.e. ALL of them are dropped if ANY has a read count below the threshold.
   if (verbose)
     message("Computing n.tot")
-  data.gen[, n.tot := ifelse(is.finite(p0),
-                             n / ((1 - p0)^clique.size),
+  data.gen[, n.tot := ifelse(is.finite(loss),
+                             n / (1 - loss),
                              NA) ]
 
   # Return data
