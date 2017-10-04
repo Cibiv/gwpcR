@@ -309,20 +309,23 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, los
   }
   verbose <- as.logical(ctrl.get("verbose", FALSE))
   
-  # Subset data to have the "count" column (left side of formula) as the first column,
-  # followed by the key columns defining the groups (e.g. the gene name, but can be more
-  # than one).
-  data.f <- data.table(model.frame(formula, data))
-  group.key <- labels(terms(formula))
-  colnames(data.f)[1] <- "count"
-  data.th <- data.f[count >= threshold, ]
-  setkeyv(data.th, group.key)
-  
+  # Subset data to have a single "counts" columns, follows by the key columns defining
+  # the groups (e.g. the gene name, but there can be more than one, e.g. sample and gene).
+  # If the LHS of the formula contains an expressionlike c(col1, col2), the resulting
+  # table will have more rows than "data". This allows counts in multiple columns to be
+  # treated together (e.g. read counts for the plus and minus strand).
+  formula.t <- terms(formula)
+  group.key <- labels(formula.t)
+  counts.expr <- attr(formula.t, "variables")[[1 + attr(formula.t, "response")]]
+  data <- data[, list(n.obs=.N, count=eval(counts.expr)), keyby=group.key]
+  if (nrow(data[!is.finite(count) | (count < threshold)]) > 0)
+    stop("data contains non-finite counts or counts below the threshold")
+
   # Compute global parameter estimates
   if (verbose)
     message("Computing overall parameter estimates")
-  mean.all = data.th[, mean(count)]
-  var.all = data.th[, var(count)]
+  mean.all = data[, mean(count)]
+  var.all = data[, var(count)]
   m.all <- gwpcrpois.mom(mean.all, var.all,
                          threshold=threshold, molecules=molecules,
                          ctrl=ctrl)
@@ -341,17 +344,15 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, los
   # Compute raw (group-wise) mean and variance estimates, add global estimates are columns
   if (verbose)
     message("Aggregating data per group")
-  data.gen <- data.th[data.f[, list(dummy=1), by=group.key]
-                      , list(mean.all=mean.all,
-                             var.all=var.all,
-                             efficiency.all=m.all$efficiency,
-                             lambda0.all=m.all$lambda0,
-                             loss.all=eval.loss(m.all$efficiency, m.all$lambda0, m.all$p0),
-                             mean.raw=mean(count),
-                             var.raw=var(count),
-                             n=.N)
-                      , on=group.key, by=.EACHI]
-  setkeyv(data.gen, group.key)
+  data.gen <- data[, list(mean.all=mean.all,
+                          var.all=var.all,
+                          efficiency.all=m.all$efficiency,
+                          lambda0.all=m.all$lambda0,
+                          loss.all=eval.loss(m.all$efficiency, m.all$lambda0, m.all$p0),
+                          mean.raw=mean(count),
+                          var.raw=var(count),
+                          n.obs=n.obs[1]),
+                   keyby=group.key]
   
   # Compute raw (group-wise) parameter estimates
   if (verbose)
@@ -419,21 +420,21 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, los
       if (any(p <= 0) || (p["v_g"] >= m * (1-m)))
         return(NA)
       # Evaluate likelihoods. We strict shape1,2 to >= 1 to ensure monomodality
-      -sum(data.gen[is.finite(eval(x)) & (n > 0), {
-        f <- pmax(m * (1-m) / (p["v_g"] + p["v_e"] / n) - 1, 1/m, 1/(1-m))
+      -sum(data.gen[is.finite(eval(x)) & (n.obs > 0), {
+        f <- pmax(m * (1-m) / (p["v_g"] + p["v_e"] / n.obs) - 1, 1/m, 1/(1-m))
         dbeta(M/2 + eval(x)*(1-M), shape1=m*f, shape2=(1-m)*f, log=TRUE)
       }])
     }
     # Optimize v_g and v_e. Initially, we split the total observed variance evenly
-    # between v_g and v_e / n for the smallest positive group size n.
+    # between v_g and v_e / n.obs for the smallest positive group size n.obs.
     v <- data.gen[, min(var(eval(x), na.rm=TRUE), m * (1-m) ) ]
-    n.min <- data.gen[n > 0, min(n) ]
+    n.min <- data.gen[n.obs > 0, min(n.obs) ]
     r <- optim(fn=logl, par=c(v_g=v/2, v_e=n.min*v/2), method="Nelder-Mead")
     # Correct variances for the previous contraction
     v_g <- r$par["v_g"] / (1-M)^2
     v_e <- r$par["v_e"] / (1-M)^2
     # Add columns
-    data.gen[, paste0(x.name, ".raw.var") := v_e / n]
+    data.gen[, paste0(x.name, ".raw.var") := v_e / n.obs]
     data.gen[, paste0(x.name, ".grp.var") := v_g]
   }
   variance.estimates.normal <- function(x.name) {
@@ -448,13 +449,13 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, los
       if (any(p < 0))
         return(NA)
       # Evaluate likelihoods
-      -sum(data.gen[is.finite(eval(x)) & (n > 0),
-        dnorm(eval(x), mean=m, sd=sqrt(p["v_g"] + p["v_e"] / n), log=TRUE)
+      -sum(data.gen[is.finite(eval(x)) & (n.obs > 0),
+        dnorm(eval(x), mean=m, sd=sqrt(p["v_g"] + p["v_e"] / n.obs), log=TRUE)
       ])
     }
     r <- optim(fn=logl, par=c(v_g=v/2, v_e=v/2), method="Nelder-Mead")
     # Add columns
-    data.gen[, paste0(x.name, ".raw.var") := r$par["v_e"] / n ]
+    data.gen[, paste0(x.name, ".raw.var") := r$par["v_e"] / n.obs ]
     data.gen[, paste0(x.name, ".grp.var") := r$par["v_g"] ]
   }
   variance.estimates.beta("loss")
@@ -492,7 +493,7 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, los
   if (verbose)
     message("Computing n.tot")
   data.gen[, n.tot := ifelse(is.finite(loss),
-                             n / (1 - loss),
+                             n.obs / (1 - loss),
                              NA) ]
 
   # Return data
