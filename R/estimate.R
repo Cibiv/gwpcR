@@ -317,7 +317,7 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, los
   formula.t <- terms(formula)
   group.key <- labels(formula.t)
   counts.expr <- attr(formula.t, "variables")[[1 + attr(formula.t, "response")]]
-  data <- data[, list(n.obs=.N, count=eval(counts.expr)), keyby=group.key]
+  data <- data[, list(n.umis=.N, count=eval(counts.expr)), keyby=group.key]
   if (nrow(data[!is.finite(count) | (count < threshold)]) > 0)
     stop("data contains non-finite counts or counts below the threshold")
 
@@ -351,7 +351,8 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, los
                           loss.all=eval.loss(m.all$efficiency, m.all$lambda0, m.all$p0),
                           mean.raw=mean(count),
                           var.raw=var(count),
-                          n.obs=n.obs[1]),
+                          n.umis=n.umis[1],
+                          n.obs=.N),
                    keyby=group.key]
   
   # Compute raw (group-wise) parameter estimates
@@ -493,7 +494,7 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, los
   if (verbose)
     message("Computing n.tot")
   data.gen[, n.tot := ifelse(is.finite(loss),
-                             n.obs / (1 - loss),
+                             n.umis / (1 - loss),
                              NA) ]
 
   # Return data
