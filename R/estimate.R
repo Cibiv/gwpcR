@@ -402,25 +402,32 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, los
     if (verbose)
       message("Estimating variances of ", x.name, " using the distribution-free algorithm")
     x <- parse(text=paste0(x.name, ".raw"))
-    # For the mean use the sampling mean, since we assume it's independent of n
-    m <- data.gen[, mean(eval(x), na.rm=TRUE) ]
-    # Compute quantity to minimize, i.e. squared deviation from variance
-    logl <- function(p) {
-      # Reject invalid parameters. Note that the beta variance is always <= m * (1-m).
-      if (any(p <= 0))
-        return(NA)
-      # Evaluate target function
-      data.gen[is.finite(eval(x)) & (n.obs > 0),
-               sum(((eval(x) - m)^2 - (p["v_g"] + p["v_e"] / n.obs))^2 * n.obs)]
+    # Find least-squared estimates for v_g, v_e.
+    r <- data.gen[is.finite(eval(x)) & (n.obs > 0), {
+      y <- (eval(x) - mean(eval(x), na.rm=TRUE))^2
+      x <- cbind(v_g=rep(1, .N), v_e=1/n.obs)
+      lsfit(x, y, wt=n.obs, intercept=FALSE)$coefficients
+    } ]
+    if (all(r < 0)) {
+      stop("both variance estimators are negative")
+    } else if (r["v_g"] < 0) {
+      warning("variance of ", x.name, " between groups estimated to be negative, setting to zero")
+      # Between-gene variance estimate is negative. Assume between-gene variance
+      # is negligible, and estimate only the estimator variance.
+      r <- c(v_g=0, data.gen[is.finite(eval(x)) & (n.obs > 0), {
+        y <- (eval(x) - mean(eval(x), na.rm=TRUE))^2
+        x <- cbind(v_e=1/n.obs)
+        lsfit(x, y, wt=n.obs, intercept=FALSE)$coefficients["v_e"]
+      } ])
+    } else if (r["v_e"] < 0) {
+      warning("estimator variance of ", x.name, " within groups estimated to be negative, setting to zero")
+      # Estimate of estimator variance is negative. Assume estimator variance is
+      # negligible, and estimate only the between-gene variance.
+      r <- c(v_g=data.gen[is.finite(eval(x)) & (n.obs > 0), var(eval(x), na.rm=TRUE)], v_e=0)
     }
-    # Optimize v_g and v_e. Initially, we split the total observed variance evenly
-    # between v_g and v_e / n.obs for the smallest positive group size n.obs.
-    v <- data.gen[, var(eval(x), na.rm=TRUE) ]
-    n.min <- data.gen[n.obs > 0, min(n.obs) ]
-    r <- optim(fn=logl, par=c(v_g=v/2, v_e=n.min*v/2), method="Nelder-Mead")
     # Add columns
-    data.gen[, paste0(x.name, ".raw.var") := r$par["v_e"] / n.obs]
-    data.gen[, paste0(x.name, ".grp.var") := r$par["v_g"]]
+    data.gen[, paste0(x.name, ".grp.var") := r["v_g"]]
+    data.gen[, paste0(x.name, ".raw.var") := r["v_e"] / n.obs]
   }
 
   # Estimate variance of p_0^raw (and also lambda0^raw, efficiency^raw) as a function
