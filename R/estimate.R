@@ -393,7 +393,7 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, los
   #
   #                                               2
   #    /                                        \
-  #   |  (loss^raw - m)^2  -  v_g + v_e / n^obs |   * n^obs
+  #   |  (loss^raw - m)^2  -  v_g - v_e / n^obs |   * n^obs
   #    \                                        /
   #
   # over all genes. m is the sample mean over all genes. We start the numerical
