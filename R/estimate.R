@@ -308,6 +308,7 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, los
     lapply
   }
   verbose <- as.logical(ctrl.get("verbose", FALSE))
+  var.est.distfree <- as.logical(ctrl.get("var.est.distfree", TRUE))
   
   # Subset data to have a single "counts" columns, follows by the key columns defining
   # the groups (e.g. the gene name, but there can be more than one, e.g. sample and gene).
@@ -378,6 +379,50 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, los
   }))
   setkeyv(data.gen, group.key)
   
+  # Estimate variance of loss^raw (and also lambda0^raw, efficiency^raw) as a function
+  # of the number of observed UMIs n.
+  #
+  # This is the distribution-free version of the estimator. We assume the mean loss is
+  # independent from n^obs. For a fixed n^obs, the expected value of (loss^raw - m)^2
+  # is then v_g + v_e / n^obs. We find v_g and v_e by mininizing the squared deviation
+  # of the (single-point) variance estimate (loss^raw - m)^2 and the predictor. Since
+  # variances are generally bigger for small n^obs, minimizing an unweighted sum of
+  # square deviations would allow loss estimates for small n^obs to influence the
+  # estimation unduely strongly. We correct for this by weigthing the squared deivations
+  # with n^obs (which matches the expected drop in scale), and thus minimize the sum
+  #
+  #                                               2
+  #    /                                        \
+  #   |  (loss^raw - m)^2  -  v_g + v_e / n^obs |   * n^obs
+  #    \                                        /
+  #
+  # over all genes. m is the sample mean over all genes. We start the numerical
+  # search with v_g = v_e = v/2, where v is the sampling variance of the loss.
+  variance.estimates.distfree <- function(x.name) {
+    if (verbose)
+      message("Estimating variances of ", x.name, " using the distribution-free algorithm")
+    x <- parse(text=paste0(x.name, ".raw"))
+    # For the mean use the sampling mean, since we assume it's independent of n
+    m <- data.gen[, mean(eval(x), na.rm=TRUE) ]
+    # Compute quantity to minimize, i.e. squared deviation from variance
+    logl <- function(p) {
+      # Reject invalid parameters. Note that the beta variance is always <= m * (1-m).
+      if (any(p <= 0))
+        return(NA)
+      # Evaluate target function
+      data.gen[is.finite(eval(x)) & (n.obs > 0),
+               sum(((eval(x) - m)^2 - (p["v_g"] + p["v_e"] / n.obs))^2 * n.obs)]
+    }
+    # Optimize v_g and v_e. Initially, we split the total observed variance evenly
+    # between v_g and v_e / n.obs for the smallest positive group size n.obs.
+    v <- data.gen[, var(eval(x), na.rm=TRUE) ]
+    n.min <- data.gen[n.obs > 0, min(n.obs) ]
+    r <- optim(fn=logl, par=c(v_g=v/2, v_e=n.min*v/2), method="Nelder-Mead")
+    # Add columns
+    data.gen[, paste0(x.name, ".raw.var") := r$par["v_e"] / n.obs]
+    data.gen[, paste0(x.name, ".grp.var") := r$par["v_g"]]
+  }
+
   # Estimate variance of p_0^raw (and also lambda0^raw, efficiency^raw) as a function
   # of the number of observed UMIs n.
   #
@@ -407,7 +452,7 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, los
   # is replaced by a normal distribution.
   variance.estimates.beta <- function(x.name) {
     if (verbose)
-      message("Estimating variances of ", x.name)
+      message("Estimating variances of ", x.name, " assuming a beta distribution")
     x <- parse(text=paste0(x.name, ".raw"))
     # For the mean use the sampling mean, since we assume it's independent of n
     m <- data.gen[, mean(eval(x), na.rm=TRUE) ]
@@ -440,7 +485,7 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, los
   }
   variance.estimates.normal <- function(x.name) {
     if (verbose)
-      message("Estimating variances of ", x.name)
+      message("Estimating variances of ", x.name, " assuming a normal distribution")
     x <- parse(text=paste0(x.name, ".raw"))
     m <- data.gen[, mean(eval(x), na.rm=TRUE) ]
     v <- data.gen[, var(eval(x), na.rm=TRUE) ]
@@ -459,9 +504,15 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, los
     data.gen[, paste0(x.name, ".raw.var") := r$par["v_e"] / n.obs ]
     data.gen[, paste0(x.name, ".grp.var") := r$par["v_g"] ]
   }
-  variance.estimates.beta("loss")
-  variance.estimates.beta("efficiency")
-  variance.estimates.normal("lambda0")
+  if (var.est.distfree) {
+    variance.estimates.distfree("loss")
+    variance.estimates.distfree("efficiency")
+    variance.estimates.distfree("lambda0")
+  } else {
+    variance.estimates.beta("loss")
+    variance.estimates.beta("efficiency")
+    variance.estimates.normal("lambda0")
+  }
   
   # Compute shrunken estimates of loss, efficiency and lambda0 i.e.
   # 
