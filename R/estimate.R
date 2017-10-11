@@ -394,12 +394,15 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, los
   #
   #                                               2
   #    /                                        \
-  #   |  (loss^raw - m)^2  -  v_g - v_e / n^obs |   * n^obs
+  #   |  (loss^raw - m)^2  -  v_g - v_e / n^obs |   * w(n^obs), where w(n) = n / (1 + n/W)
   #    \                                        /
   #
   # over all genes. m is the sample mean over all genes. We start the numerical
   # search with v_g = v_e = v/2, where v is the sampling variance of the loss.
   variance.estimates.distfree <- function(x.name) {
+    # Parameter W controls the grow behaviour of weights. For small n.obs, the weights
+    # equal n.obs, but as n.obs grows, weights eventually converge to W.
+    W <- 100
     if (verbose)
       message("Estimating variances of ", x.name, " using the distribution-free algorithm")
     x <- parse(text=paste0(x.name, ".raw"))
@@ -407,7 +410,8 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, los
     r <- data.gen[is.finite(eval(x)) & (n.obs > 0), {
       y <- (eval(x) - mean(eval(x), na.rm=TRUE))^2
       x <- cbind(v_g=rep(1, .N), v_e=1/n.obs)
-      lsfit(x, y, wt=n.obs, intercept=FALSE)$coefficients
+      w <- n.obs / (1 + n.obs / W)
+      lsfit(x, y, wt=w, intercept=FALSE)$coefficients
     } ]
     if (all(r < 0)) {
       stop("both variance estimators are negative")
@@ -418,7 +422,8 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, los
       r <- c(v_g=0, data.gen[is.finite(eval(x)) & (n.obs > 0), {
         y <- (eval(x) - mean(eval(x), na.rm=TRUE))^2
         x <- cbind(v_e=1/n.obs)
-        lsfit(x, y, wt=n.obs, intercept=FALSE)$coefficients["v_e"]
+        w <- n.obs
+        lsfit(x, y, wt=w, intercept=FALSE)$coefficients["v_e"]
       } ])
     } else if (r["v_e"] < 0) {
       warning("estimator variance of ", x.name, " within groups estimated to be negative, setting to zero")
@@ -426,6 +431,8 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, los
       # negligible, and estimate only the between-gene variance.
       r <- c(v_g=data.gen[is.finite(eval(x)) & (n.obs > 0), var(eval(x), na.rm=TRUE)], v_e=0)
     }
+    if (any(r < 0))
+      stop("some variance estimators are negative")
     # Add columns
     data.gen[, paste0(x.name, ".grp.var") := r["v_g"]]
     data.gen[, paste0(x.name, ".raw.var") := r["v_e"] / n.obs]
