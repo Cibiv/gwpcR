@@ -1,16 +1,20 @@
 Package: gwpcR
 Type: Package
-Title: PCR Product Distribution induced by a Binomial Galton-Watson Process
-Version: 0.9.6
-Date: 2017-10-04
+Title: Amplification+Sequencing Model based on a Galton-Watson Branching Process and Poissonian Sampling
+Version: 0.9.7
+Date: 2017-10-11
 Depends:
     R (>= 3.1.0)
 Imports:
     akima (>= 0.5-10),
     data.table (>= 1.8.11),
     statmod
-Author: Who wrote it
-Maintainer: Who to complain to <fgp@phlo.org>
-Description: More about what it does (maybe more than one line)
+Author: Florian G. Pflug
+Maintainer: Florian G. Pflug <florian.pflug@univie.ac.at>
+Description: Implements the necessary distributions and parameter estimation
+    procedures for a model of amplification and high-troughput sequencing. The
+    model is based on a mechanistic model of PCR amplification as a Galton-Watson
+    branching process, and on Poissonan sampling to model high-throughput
+    sequencing.
 License: GPL
 RoxygenNote: 6.0.1
