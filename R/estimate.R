@@ -310,6 +310,7 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, los
   verbose <- as.logical(ctrl.get("verbose", FALSE))
   var.est.distfree <- as.logical(ctrl.get("var.est.distfree", TRUE))
   obs.min.ingroup <- as.numeric(ctrl.get("obs.min.ingroup", 6))
+  use.nonconv.groupest <- as.logical(ctrl.get("use.nonconv.groupest", FALSE))
   
   # Subset data to have a single "counts" columns, follows by the key columns defining
   # the groups (e.g. the gene name, but there can be more than one, e.g. sample and gene).
@@ -366,7 +367,7 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, los
       tryCatch({
         if (is.finite(mean.raw) && is.finite(var.raw) && (n.obs >= obs.min.ingroup)) {
           m <- gwpcrpois.mom(mean.raw, var.raw, threshold=threshold, molecules=molecules,
-                             ctrl=ctrl, nonconvergence.is.error=TRUE)
+                             ctrl=ctrl, nonconvergence.is.error=!use.nonconv.groupest)
           list(m$efficiency, m$lambda0, eval.loss(m$efficiency, m$lambda0, m$p0))
         } else
           list(NA, NA, NA)
