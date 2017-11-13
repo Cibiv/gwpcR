@@ -25,7 +25,7 @@ if [ $(git ls-remote --tags origin v$ver | wc -l) != 0 ]; then
 fi
 
 echo "Updating DESCRIPTION" >&2
-sed -i .bak 's/^Version: \(.*\)$/Version: '"$ver"'/' DESCRIPTION
+sed -i.bak 's/^Version: \(.*\)$/Version: '"$ver"'/' DESCRIPTION
 rm DESCRIPTION.bak
 
 echo "Comitting change" >&2
