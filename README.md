@@ -11,6 +11,12 @@ are
 3. Install `gwpcR` from its github repository by typing
    `devtools::install_git("https://github.com/Cibiv/gwpcR.git", branch="latest-release")`
 
+# Publications
+
+The implemented model is described in detail in our paper *TRUmiCount: Correctly counting
+absolute numbers of molecules using unique molecular identifiers*, Florian G. Pflug & Arndt
+von Haeseler, Preprint at https://www.biorxiv.org/content/early/2017/11/13/217778. (2017).
+
 # License
 
 `gwpcR` is free software: you can redistribute it and/or modify it under the
