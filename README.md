@@ -8,8 +8,8 @@ are
 2. Install the `devtools` package if it's not alreay installed by typing
    `install.packages("devtools")`
 
-3. Install `gwpcR` from its bitbucket repository by typing
-   `devtools::install_git("https://gwpcr-access:gwpcr123@bitbucket.org/florian_pflug/gwpcr.git")`
+3. Install `gwpcR` from its github repository by typing
+   `devtools::install_git("https://github.com/Cibiv/gwpcR.git", branch="latest-release")`
 
 # License
 
