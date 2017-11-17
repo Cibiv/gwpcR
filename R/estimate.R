@@ -15,23 +15,48 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with gwpcR.  If not, see <http://www.gnu.org/licenses/>.
 
-#' Method-of-Moments Parameter Estimation for PCR-Poisson Mixture
+#' Parameter Estimation for PCR-Poisson Mixture
 #'
-#' Estimates the parameters \var{efficiency} and \var{lambda0} from the sample
-#' mean and variance. Supports arbitrary detection thresholds and initial
-#' molecule counts, but estimation is considerably faster in the (unrealistic)
-#' case \var{threshold=0} than in the general one.
+#' Estimates the parameters \var{efficiency} and \var{lambda0} from a vector
+#' of observed read counts per molecular family, or (depending on the estimation
+#' method) the mean and variance of these observations. Supports arbitrary
+#' detection thresholds and initial molecule counts, but estimation may be
+#' considerably faster in the (unrealistic) case \var{threshold=0} than in the
+#' general one.
 #'
-#' @inheritParams gwpcrpois
+#' @param x a numeric vector containing the observed read counts per molecular
+#'   family, after removal of families below the detection threshold. The
+#'   vector must thus contain only whole numbers not smaller than \var{threshold}.
+#'   This parameter and the combination of parameters \var{mean} and \var{var}
+#'   are mutually exclusive.
 #'
 #' @param mean average number of observations per molecular family
 #'   \emph{computed over the unambiguously detected famililies}, i.e. over those
-#'   families which were observed at least \var{threshold} times.
+#'   families which were observed at least \var{threshold} times. This parameter
+#'   and specifying an observation vector through parameter \var{x} are mutually
+#'   exclusive, and specifying \var{mean} and \var{var} instead of the full
+#'   observation vector is only possible for estimation method 'mom'.
 #'
 #' @param var standard deviations of number of observations per molecular
 #'   family, also \emph{computed over the unambiguously detected famililies},
-#'   i.e. over those families which were observed at least \var{threshold}
-#'   times.
+#'   i.e. over those families which were observed at least \var{threshold} times.
+#'   This parameter and specifying an observation vector through parameter \var{x}
+#'   are mutually exclusive, and specifying \var{mean} and \var{var} instead of
+#'   the full observation vector is only possible for estimation method 'mom'.
+#'
+#' @param method the estimation method to use, either 'mle' for \emph{maximum
+#'   likelihood estimation} or 'mom' for \emph{method of moments}. See Details.
+#'
+#' @param must.converge if set to \code{TRUE}, an error is reported of the
+#'   parameter estimation fails to converge. If \code{FALSE}, a warning is
+#'   reported instead.
+#'
+#' @param ctrl a list of settings controlling the estimation procedure.
+#'   Difference estimation methods recognize different possible \code{ctrl}
+#'   settings, unrecognized settings are ignored without warning. See Details
+#'   for the settings relevant to each estimation method.
+#'
+#' @inheritParams gwpcrpois
 #'
 #' @return A list containing the values
 #'
@@ -43,9 +68,6 @@
 #'
 #'   \item{lambda0}{parameter estimate for \var{lambda0} (see \link{gwpcrpois})}
 #'
-#'   \item{pdetect}{probability of unambiguosly detecting a particular molecular
-#'   family, i.e of it having at least \var{threshold} observations}
-#'   
 #'   \item{p0}{probability of not unambiguosly detecting a particular molecular
 #'   family, i.e of it having fewer than \var{threshold} observations. Always
 #'   equal to \code{1-pdetect}}
@@ -56,7 +78,11 @@
 #'   \item{molecules}{initial molecule count specified in the call to
 #'   \code{gwpcrpois.mom}}
 #'
-#' @details For the (unrealistic) uncensored case, i.e. \var{threshold=0}, the
+#' @details The behaviour and supported \code{ctrl} settings depend on the
+#'   estimation method used.
+#'   \describe{
+#'   \item{mom}{
+#'   For the (unrealistic) uncensored case, i.e. \var{threshold=0}, the
 #'   specified mean is the method-of-moments estimate for \var{lambda0}, and a
 #'   closed formula is used to compute \var{efficiency} from \var{mean} and
 #'   \var{var}. The \var{ctrl} argument is not used in this case.
@@ -86,22 +112,98 @@
 #'   \code{1e-4}.}
 #'
 #'   \item{trace}{Output estimates after each round}
-#'
+#'   }
+#'   }
+#'   \item{mle}{
+#'   }
 #'   }
 #'
 #' @seealso \code{\link{gwpcrpois}}
 #'
 #' @export
-gwpcrpois.mom <- function(mean, var, threshold=1, molecules=1, ctrl=list(), nonconvergence.is.error=FALSE) {
-  if (!is.numeric(mean) || (length(mean) != 1) || (mean <= 0) || (mean >= Inf))
-    stop('mean must be a strictly positive numeric scalar')
-  if (!is.numeric(var) || (length(var) != 1) || (var <= 0) || (var >= Inf))
-    stop('var must be a strictly positive numeric scalar')
+gwpcrpois.est <- function(x=NULL, mean=NULL, var=NULL, method="mom",
+                          must.converge=TRUE,  threshold=1, molecules=1, ctrl=list())
+{
+  if (!is.null(x) && !is.numeric(x) &&)
+    stop('if specified, observation vector x must be a numeric vector')
+  if (!is.null(mean) && (!is.numeric(mean) || (length(mean) != 1) || (mean < 0)))
+    stop('if specified, mean must be a non-negative scalar')
+  if (!is.null(var) && (!is.numeric(var) || (length(var) != 1) || (var < 0)))
+    stop('if specified, var must be a non-negative scalar')
+  method <- match.arg(method, c("mom", "mle"))
+  if (!(method %in% c("mom", "mle")))
+    stop("method must be 'mom' or 'mle'")
+  if (!is.numeric(threshold) || (length(threshold) != 1) || (threshold != floor(threshold)) || (threshold < 0))
+    stop('threshold must be a non-negative integral scalar')
   if (!is.numeric(threshold) || (length(threshold) != 1) || (threshold != floor(threshold)) || (threshold < 0))
     stop('threshold must be a non-negative integral scalar')
   if (!is.numeric(molecules) || (length(molecules) != 1) || (molecules != floor(molecules)) || (molecules < 1))
     stop('molecules must be a strictly positive integral scalar')
+  if (!is.logical(nonconvergence.is.error) || (length(nonconvergence.is.error) != 1) || is.na(nonconvergence.is.error))
+    stop('nonconvergence.is.error must be TRUE or FALSE')
+  if (!is.list(ctrl))
+    stop('ctrl must be a list')
 
+  # Call either gwpcrpois.estimator.mom or gwpcrpois.estimator.mle
+  r <- if (is.numeric(x)) {
+    if (!is.null(mean) || !is.null(variance))
+      stop("either mean and variance OR a vector or observations, but not both, must be specified")
+    # x is a vector of per-UMI read counts (after threshold application)
+    if (any(x != floor(x)) || any(is.na(x)) || any(!is.finite(x)) || any(x < threshold))
+      stop("observations in vector x must be whole numbers >= threshold")
+    if (method == "mom")
+      gwpcrpois.estimator.mom(mean=mean(x), var=var(x), threshold=threshold,
+                              molecules=molecules, ctrl=ctrl)
+    else if (method == "mle")
+      gwpcrpois.estimator.mle(x, threshold=threshold, molecules=molecules, ctrl=ctrl)
+  } else if (is.null(x) && is.numeric(mean) && is.numeric(variance)) {
+    if (method != "mom")
+      stop("if mean and variance instead of the full observation vector is specified, only method 'mom' is supported")
+    gwpcrpois.estimator.mom(mean=mean, var=var, threshold=threshold,
+                            molecules=molecules, ctrl=ctrl)
+  } else {
+    stop("either mean and variance or a vector of observations must be specified")
+  }
+
+  # Handle nonconvergence.is.error
+  if (r$convergence != 0) {
+    if (nonconvergence.is.error)
+      stop("gwpcrpois.mom did not converge")
+    else
+      warning("gwpcrpois.mom did not converge, returning best estimate so far")
+  }
+
+  # XXX: loss expression
+
+  return(r)
+}
+
+#' Compatibility wrapper of \code{\link{gwpcrpois.est}}
+#'
+#' @seeaalso \code{\link{gwpcrpois.est}}
+#'
+#' @export
+gwpcrpois.mom <- function(mean, var, threshold=1, molecules=1,
+                          ctrl=list(), nonconvergence.is.error=FALSE)
+{
+  gwpcrpois.est(mean=mean, var=var, threshold=threshold, molecules=molecules,
+                must.converge=nonconvergence.is.error, ctrl=ctrl)
+}
+
+#' Compatibility wrapper of \code{\link{gwpcrpois.est}}
+#'
+#' @seeaalso \code{\link{gwpcrpois.est}}
+#'
+#' @export
+gwpcrpois.mle <- function(c, threshold=1, molecules=1) {
+  gwpcrpois.mle(c, threshold=threshold, molecules=molecules)
+}
+
+# ***************************************************************************************
+# Method of Moments (MoM) Estimator
+# ***************************************************************************************
+
+gwpcrpois.estimator.mom <- function(mean, var, threshold, molecules1, ctrl) {
   # If the threshold is non-zero, we resort to a numerical solution
   exact.solution <- (threshold == 0)
   
@@ -220,24 +322,16 @@ gwpcrpois.mom <- function(mean, var, threshold=1, molecules=1, ctrl=list(), nonc
   if (trace)
     cat(paste0("Convergence: ", if (convergence == 0) "Yes" else "No"))
 
-  if (convergence != 0) {
-    if (nonconvergence.is.error)
-      stop("gwpcrpois.mom did not converge")
-    else
-      warning("gwpcrpois.mom did not converge, returning best estimate so far")
-  }
-
   # Return results
-  return(list(lambda0=lambda0, efficiency=efficiency, pdetect=pdetect, p0=1-pdetect,
+  return(list(lambda0=lambda0, efficiency=efficiency, p0=1-pdetect,
               convergence=convergence, threshold=threshold, molecules=molecules))
 }
 
-#' Maximum-Likelihood Parameter Estimation for PCR-Poisson Mixture
-#'
-#' @inheritParams gwpcrpois
-#'
-#' @export
-gwpcrpois.mle <- function(c, threshold=1, molecules=1) {
+# ***************************************************************************************
+# Maximum Likelihood (ML) Estimator
+# ***************************************************************************************
+
+gwpcrpois.estimator.mle <- function(c, threshold, molecules, ctrl) {
   # Since evaluating the PCR-Poisson mixture is slow, we optimize by evaluating it only
   # once for each unique observed count, and multiplying the log-likelihood with the
   # number of times that count was observed.
@@ -246,7 +340,8 @@ gwpcrpois.mle <- function(c, threshold=1, molecules=1) {
   # Use method of moments estimates as initial parameters. Since we do the parameter
   # search with clamp.efficiency set to FALSE, we must take care to clamp it to the
   # range of efficiencies found in GWPCR here
-  mom <- gwpcrpois.mom(mean=mean(c), var=var(c), molecules=molecules, threshold=threshold)
+  mom <- gwpcrpois.estimator.mom(mean=mean(c), var=var(c), must.converge=FALSE,
+                                 molecules=molecules, threshold=threshold)
   mom$efficiency <- pmin(pmax(GWPCR$efficiency[1], mom$efficiency), tail(GWPCR$efficiency,1))
 
   # Optimize likelihood
@@ -267,19 +362,29 @@ gwpcrpois.mle <- function(c, threshold=1, molecules=1) {
       as.numeric(NA)
   }
   p0 <- c(efficiency=mom$efficiency, lambda0=mom$lambda0)
-  r <- optim(par=p0, fn=logl, method="Nelder-Mead",
-             control=list(fnscale=-abs(logl(p0) - logl(p0 * c(0.9, 0.9))),
-                          parscale=c(efficiency=p0['efficiency']/10,
-                                     lambda0=p0['lambda0']/10)))
+  ctrl$fnscale <- -abs(logl(p0) - logl(p0 * c(0.9, 0.9)))
+  ctrl$parscale <- c(efficiency=p0['efficiency']/10, lambda0=p0['lambda0']/10)
+  r <- optim(par=p0, fn=logl, method="Nelder-Mead", control=ctrl)
+
+  # Compute p0
+  p0 <- if (threshold > 0)
+    pgwpcrpois(threshold-1, efficiency=r$par['efficiency'], lambda0=r$par['lambda0'],
+               threshold=0, molecules=molecules)
+  else
+    0
 
   # Return result
-  # XXX: Also return p0 and pdetect
-  list(convergence=r$convergence,
+  list(lambda0=as.vector(r$par['lambda0']),
        efficiency=as.vector(r$par['efficiency']),
-       lambda0=as.vector(r$par['lambda0']),
+       p0=p0,
+       convergence=r$convergence,
        threshold=threshold,
        molecules=molecules)
 }
+
+# ***************************************************************************************
+# Shrinkage Estimator
+# ***************************************************************************************
 
 #' Shrinkage Estimator for Individual Parameters of PCR-Poisson Mixture
 #' 

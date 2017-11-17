@@ -17,7 +17,7 @@
 
 #' @title Poissonian Sampling Distribution of the PCR Product Distribution
 #'
-#' @description Write Me
+#' @description XXX Write Me
 #'
 #' @param n number of random samples to generate
 #'
