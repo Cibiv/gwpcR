@@ -61,6 +61,15 @@ handle.parameters <- function(parameters, by, expr) {
   return(t$`__result__`)
 }
 
+# Get control parameters
+ctrl.get <- function(key, default) {
+  r <- ctrl[[key]]
+  if (!is.null(r))
+    r
+  else
+    default
+}
+
 #' @useDynLib gwpcR gwpcr_refine_c
 refine <- function(points, width) .Call(gwpcr_refine_c, points, width)
 
