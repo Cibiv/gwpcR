@@ -58,6 +58,16 @@
 #'
 #' @inheritParams gwpcrpois
 #'
+#' @param loss an expression specifying how the loss, i.e. the percentage of
+#'   all molecules (or UMIs) that was not observed, or removed by the read
+#'   count threshold. In the simple case where each read count observation
+#'   represent a separate molecules, the default value \code{p0} is correct
+#'   -- the lost molecules are then simply those whose read count lies below
+#'   the specified \code{threshold}. In more complex scenarios, e.g. if a
+#'   single molecule produces separate read count for each strand, which are
+#'   then either both rejected or both accepted, the additional rejection cases
+#'   must be considered by a custom loss expression
+#'
 #' @return A list containing the values
 #'
 #'   \item{convergence}{flag indicating whether the estimation converged.
@@ -68,9 +78,13 @@
 #'
 #'   \item{lambda0}{parameter estimate for \var{lambda0} (see \link{gwpcrpois})}
 #'
-#'   \item{p0}{probability of not unambiguosly detecting a particular molecular
-#'   family, i.e of it having fewer than \var{threshold} observations. Always
-#'   equal to \code{1-pdetect}}
+#'   \item{p0}{probability of observing a read count less than the specified
+#'   \code{threshold}}
+#'
+#'   \item{loss}{the estimation loss according to the specified loss expression,
+#'    i.e. percentage of molecules not observed or filtered out}
+#'
+#'    XXX n.obs, n.umis, n.tot
 #'
 #'   \item{threshold}{detection threshold specified in the call to
 #'   \code{gwpcrpois.mom}}
@@ -174,7 +188,9 @@ gwpcrpois.est <- function(x=NULL, mean=NULL, var=NULL, n.umis=NULL, method="mom"
       warning("gwpcrpois.mom did not converge, returning best estimate so far")
   }
 
-  # XXX: Evaluate loss expression
+  # Evaluate loss expression
+  r$loss <- tryCatch(eval(loss, envir=r, enclos=parent.frame()),
+                     error=function(e) { warning(conditionMessage(e)) ; NA})
 
   # Set n.obs, n.umis and n.tot = n.umis / (1 - loss)
   r$n.obs <- if (!is.null(x)) length(x) else NA
