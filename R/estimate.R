@@ -44,6 +44,11 @@
 #'   are mutually exclusive, and specifying \var{mean} and \var{var} instead of
 #'   the full observation vector is only possible for estimation method 'mom'.
 #'
+#' @param n.umis the number of observed \acronym{UMI}s, used in the estimation
+#'    of \code{n.tot} (i.e. the total number of molecules/\acronym{UMI}s in the
+#'    original sample). See also the dicussion of the parameter \code{loss}, and
+#'    the result value \code{n.tot}.
+#'
 #' @param method the estimation method to use, either 'mle' for \emph{maximum
 #'   likelihood estimation} or 'mom' for \emph{method of moments}. See Details.
 #'
@@ -52,7 +57,7 @@
 #'   reported instead.
 #'
 #' @param ctrl a list of settings controlling the estimation procedure.
-#'   Difference estimation methods recognize different possible \code{ctrl}
+#'   Difference estimation methods recognize different possible \var{ctrl}
 #'   settings, unrecognized settings are ignored without warning. See Details
 #'   for the settings relevant to each estimation method.
 #'
@@ -60,18 +65,22 @@
 #'
 #' @param loss an expression specifying how the loss, i.e. the percentage of
 #'   all molecules (or UMIs) that was not observed, or removed by the read
-#'   count threshold. In the simple case where each read count observation
-#'   represent a separate molecules, the default value \code{p0} is correct
+#'   count threshold. In the simple case of each read count observation
+#'   representing a separate molecules, the default value \var{p0} is correct
 #'   -- the lost molecules are then simply those whose read count lies below
-#'   the specified \code{threshold}. In more complex scenarios, e.g. if a
+#'   the specified \var{threshold}. In more complex scenarios, e.g. if a
 #'   single molecule produces separate read count for each strand, which are
 #'   then either both rejected or both accepted, the additional rejection cases
 #'   must be considered by a custom loss expression
 #'
+#' @param ctrl a list of settings influecing the numerical method(s) used for
+#'   estimating the parameters. The behaviour and supported \var{ctrl} settings
+#'   depend on the estimation method used.
+#'
 #' @return A list containing the values
 #'
 #'   \item{convergence}{flag indicating whether the estimation converged.
-#'   \code{0} indicates convergence.}
+#'   \var{0} indicates convergence.}
 #'
 #'   \item{efficiency}{parameter estimate for \var{efficiency} (see
 #'   \link{gwpcrpois})}
@@ -79,23 +88,29 @@
 #'   \item{lambda0}{parameter estimate for \var{lambda0} (see \link{gwpcrpois})}
 #'
 #'   \item{p0}{probability of observing a read count less than the specified
-#'   \code{threshold}}
+#'   \var{threshold}}
 #'
 #'   \item{loss}{the estimation loss according to the specified loss expression,
 #'    i.e. percentage of molecules not observed or filtered out}
 #'
-#'    XXX n.obs, n.umis, n.tot
+#'   \item{n.tot}{the estimated total number of molecules in the sample, i.e.
+#'   \code{n.ums / (1 - loss)}}
+#'
+#'   \item{n.obs}{The length of the observation vector \var{x} used for parameter
+#'   estimation, or \code{NA} if \var{mean} and \var{variance} were specified
+#'   directly.}
+#'
+#'   \item{n.umis}{The number of observed molecules/\acronym{UMI}s specified in
+#'   the call to \code{gwpcrpois.est}}
 #'
 #'   \item{threshold}{detection threshold specified in the call to
-#'   \code{gwpcrpois.mom}}
+#'   \code{gwpcrpois.est}}
 #'
 #'   \item{molecules}{initial molecule count specified in the call to
-#'   \code{gwpcrpois.mom}}
+#'   \code{gwpcrpois.est}}
 #'
-#' @details The behaviour and supported \code{ctrl} settings depend on the
-#'   estimation method used.
-#'   \describe{
-#'   \item{mom}{
+#' @details \describe{
+#'   \item{\code{mom}}{
 #'   For the (unrealistic) uncensored case, i.e. \var{threshold=0}, the
 #'   specified mean is the method-of-moments estimate for \var{lambda0}, and a
 #'   closed formula is used to compute \var{efficiency} from \var{mean} and
@@ -128,7 +143,12 @@
 #'   \item{trace}{Output estimates after each round}
 #'   }
 #'   }
-#'   \item{mle}{
+#'   \item{\code{mle}}{
+#'   The parameters are estimated by maximizing the log-likelihood using
+#'   \code{\link{optim}}. The \var{ctrl} settings are passed through to
+#'   \code{\link{optim}}, except for \var{fnscale} and \var{parscale} which
+#'   are overwritten. The method of moments (method \code{'mom'})) estimate
+#'   is used as the starting point during liklihood optimization.
 #'   }
 #'   }
 #'
