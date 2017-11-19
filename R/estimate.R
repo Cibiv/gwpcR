@@ -97,7 +97,7 @@
 #'   \code{n.ums / (1 - loss)}}
 #'
 #'   \item{n.obs}{The length of the observation vector \var{x} used for parameter
-#'   estimation, or \code{NA} if \var{mean} and \var{variance} were specified
+#'   estimation, or \code{NA} if \var{mean} and \var{var} were specified
 #'   directly.}
 #'
 #'   \item{n.umis}{The number of observed molecules/\acronym{UMI}s specified in
@@ -159,7 +159,7 @@ gwpcrpois.est <- function(x=NULL, mean=NULL, var=NULL, n.umis=NULL, method="mom"
                           must.converge=TRUE, threshold=1, molecules=1, loss=expression(p0),
                           ctrl=list())
 {
-  if (!is.null(x) && !is.numeric(x) &&)
+  if (!is.null(x) && !is.numeric(x))
     stop('if specified, observation vector x must be a numeric vector')
   if (!is.null(mean) && (!is.numeric(mean) || (length(mean) != 1) || (mean < 0)))
     stop('if specified, mean must be a non-negative scalar')
@@ -181,8 +181,8 @@ gwpcrpois.est <- function(x=NULL, mean=NULL, var=NULL, n.umis=NULL, method="mom"
 
   # Call either gwpcrpois.estimator.mom or gwpcrpois.estimator.mle
   r <- if (is.numeric(x)) {
-    if (!is.null(mean) || !is.null(variance))
-      stop("either mean and variance OR a vector or observations, but not both, must be specified")
+    if (!is.null(mean) || !is.null(var))
+      stop("either mean and var OR a vector or observations, but not both, must be specified")
     # x is a vector of per-UMI read counts (after threshold application)
     if (any(x != floor(x)) || any(is.na(x)) || any(!is.finite(x)) || any(x < threshold))
       stop("observations in vector x must be whole numbers >= threshold")
@@ -191,13 +191,13 @@ gwpcrpois.est <- function(x=NULL, mean=NULL, var=NULL, n.umis=NULL, method="mom"
                               molecules=molecules, ctrl=ctrl)
     else if (method == "mle")
       gwpcrpois.estimator.mle(x, threshold=threshold, molecules=molecules, ctrl=ctrl)
-  } else if (is.null(x) && is.numeric(mean) && is.numeric(variance)) {
+  } else if (is.null(x) && is.numeric(mean) && is.numeric(var)) {
     if (method != "mom")
-      stop("if mean and variance instead of the full observation vector is specified, only method 'mom' is supported")
+      stop("if mean and var instead of the full observation vector is specified, only method 'mom' is supported")
     gwpcrpois.estimator.mom(mean=mean, var=var, threshold=threshold,
                             molecules=molecules, ctrl=ctrl)
   } else {
-    stop("either mean and variance or a vector of observations must be specified")
+    stop("either mean and var or a vector of observations must be specified")
   }
 
   # Handle nonconvergence.is.error
@@ -265,7 +265,7 @@ gwpcrpois.est.groups <- function(formula, data, method="mom", threshold=1, molec
 
 #' Compatibility wrapper of \code{\link{gwpcrpois.est}}
 #'
-#' @seeaalso \code{\link{gwpcrpois.est}}
+#' @seealso \code{\link{gwpcrpois.est}}
 #'
 #' @export
 gwpcrpois.mom <- function(mean, var, threshold=1, molecules=1,
@@ -277,7 +277,7 @@ gwpcrpois.mom <- function(mean, var, threshold=1, molecules=1,
 
 #' Compatibility wrapper of \code{\link{gwpcrpois.est}}
 #'
-#' @seeaalso \code{\link{gwpcrpois.est}}
+#' @seealso \code{\link{gwpcrpois.est}}
 #'
 #' @export
 gwpcrpois.mle <- function(c, threshold=1, molecules=1) {
@@ -288,7 +288,7 @@ gwpcrpois.mle <- function(c, threshold=1, molecules=1) {
 # Method of Moments (MoM) Estimator
 # ***************************************************************************************
 
-gwpcrpois.estimator.mom <- function(mean, var, threshold, molecules1, ctrl) {
+gwpcrpois.estimator.mom <- function(mean, var, threshold, molecules, ctrl) {
   # If the threshold is non-zero, we resort to a numerical solution
   exact.solution <- (threshold == 0)
   
@@ -537,7 +537,7 @@ gwpcrpois.estimator.groups.raw <- function(frame, frame.grp=NULL, method, thresh
     # Generate row
     r[, c("n.umis", "n.obs", "efficiency.raw", "lambda0.raw", "loss.raw") :=
         list(frame[k, n.umis], length(obs), m$efficiency, m$lambda0, m$loss)]
-  }
+  }))
   setkeyv(frame.grp, group.key)
 
   # Return grouped frame
