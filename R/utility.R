@@ -62,7 +62,7 @@ handle.parameters <- function(parameters, by, expr) {
 }
 
 # Get control parameters
-ctrl.get <- function(key, default) {
+ctrl.get <- function(key, default, ctrl=get('ctrl', envir=parent.frame())) {
   r <- ctrl[[key]]
   if (!is.null(r))
     r

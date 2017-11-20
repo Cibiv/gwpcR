@@ -425,7 +425,7 @@ gwpcrpois.estimator.mle <- function(c, threshold, molecules, ctrl) {
   # Use method of moments estimates as initial parameters. Since we do the parameter
   # search with clamp.efficiency set to FALSE, we must take care to clamp it to the
   # range of efficiencies found in GWPCR here
-  mom <- gwpcrpois.estimator.mom(mean=mean(c), var=var(c), must.converge=FALSE,
+  mom <- gwpcrpois.estimator.mom(mean=mean(c), var=var(c), ctrl=ctrl.get('mom', list()),
                                  molecules=molecules, threshold=threshold)
   mom$efficiency <- pmin(pmax(GWPCR$efficiency[1], mom$efficiency), tail(GWPCR$efficiency,1))
 
