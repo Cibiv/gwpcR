@@ -56,11 +56,6 @@
 #'   parameter estimation fails to converge. If \code{FALSE}, a warning is
 #'   reported instead.
 #'
-#' @param ctrl a list of settings controlling the estimation procedure.
-#'   Difference estimation methods recognize different possible \var{ctrl}
-#'   settings, unrecognized settings are ignored without warning. See Details
-#'   for the settings relevant to each estimation method.
-#'
 #' @inheritParams gwpcrpois
 #'
 #' @param loss an expression specifying how the loss, i.e. the percentage of
@@ -73,9 +68,10 @@
 #'   then either both rejected or both accepted, the additional rejection cases
 #'   must be considered by a custom loss expression
 #'
-#' @param ctrl a list of settings influecing the numerical method(s) used for
-#'   estimating the parameters. The behaviour and supported \var{ctrl} settings
-#'   depend on the estimation method used.
+#' @param ctrl a list of settings controlling the estimation procedure.
+#'   Difference estimation methods recognize different possible \var{ctrl}
+#'   settings, unrecognized settings are ignored without warning. See Details
+#'   for the settings relevant to each estimation method.
 #'
 #' @return A list containing the values
 #'
@@ -109,8 +105,12 @@
 #'   \item{molecules}{initial molecule count specified in the call to
 #'   \code{gwpcrpois.est}}
 #'
-#' @details \describe{
-#'   \item{\code{mom}}{
+#' @details The two available estimation methods, \emph{method of
+#'   moments} (\code{method='mome'}) and \emph{maximum likelihood}
+#'   (\code{method='mle'}) have different propertiers and accept different
+#'   \var{ctrl} parameters:
+#'   \describe{
+#'   \item{method of moments (\code{mom}):}{
 #'   For the (unrealistic) uncensored case, i.e. \var{threshold=0}, the
 #'   specified mean is the method-of-moments estimate for \var{lambda0}, and a
 #'   closed formula is used to compute \var{efficiency} from \var{mean} and
@@ -123,7 +123,7 @@
 #'
 #'   An interative approach is used to find method-of-moment estimates in this
 #'   case. Initial estimates are computed as if \var{threshold} were zero. From
-#'   these the probability \var{pdetect} of detecting a particular family is
+#'   these the probability \var{pdetect} (i.e. \code{1-p0}) of detecting a particular family is
 #'   found, and used to correct for the biases in the sample mean and variance.
 #'   Then the parameter estimates are updated. This process continues until it
 #'   either converges or reaches the maximum allowed number of iterations. Both
@@ -143,7 +143,7 @@
 #'   \item{trace}{Output estimates after each round}
 #'   }
 #'   }
-#'   \item{\code{mle}}{
+#'   \item{maximum likelihood (\code{mle}):}{
 #'   The parameters are estimated by maximizing the log-likelihood using
 #'   \code{\link{optim}}. The \var{ctrl} settings are passed through to
 #'   \code{\link{optim}}, except for \var{fnscale} and \var{parscale} which
