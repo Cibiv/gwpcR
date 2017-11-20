@@ -90,8 +90,8 @@ test_est(1.0 , 5, 1e4, 1, 4, 'mle')
 
 # Molecules: 2, Threshold > 1
 test_est(0.5 , 12, 1e4, 2, 5, 'mle')
-test_est(1.0 , 5, 1e4, 2, 4, 'mle')
+test_est(1.0 , 5, 1e4, 2, 2, 'mle')
 
 # Molecules: 3, Threshold > 1
 test_est(0.5 , 12, 1e4, 3, 5, 'mle')
-test_est(1.0 , 5, 1e4, 3, 4, 'mle')
+test_est(1.0 , 5, 1e4, 3, 2, 'mle')
