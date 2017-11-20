@@ -228,7 +228,10 @@ gwpcrpois.est <- function(x=NULL, mean=NULL, var=NULL, n.umis=NULL, method="mom"
 gwpcrpois.est.groups <- function(formula, data, method="mom", threshold=1, molecules=1,
                                  loss=expression(p0), ctrl=list())
 {
-  if (!class(formula) == "formula")
+  # Get control parameters
+  verbose <- as.logical(ctrl.get("verbose", FALSE))
+
+    if (!class(formula) == "formula")
     stop("formula must be a 'formula', see help(formula)")
   data <- as.data.table(data)
   method <- match.arg(method, c("mom", "mle"))
@@ -400,7 +403,7 @@ gwpcrpois.estimator.mom <- function(mean, var, threshold, molecules, ctrl) {
                     lambda0=lambda0, pdetect=pdetect))
     }
   } else {
-    pdetect <- 0
+    pdetect <- 1
     convergence <- 0
   }
 
@@ -446,10 +449,10 @@ gwpcrpois.estimator.mle <- function(c, threshold, molecules, ctrl) {
     else
       as.numeric(NA)
   }
-  p0 <- c(efficiency=mom$efficiency, lambda0=mom$lambda0)
-  ctrl$fnscale <- -abs(logl(p0) - logl(p0 * c(0.9, 0.9)))
-  ctrl$parscale <- c(efficiency=p0['efficiency']/10, lambda0=p0['lambda0']/10)
-  r <- optim(par=p0, fn=logl, method="Nelder-Mead", control=ctrl)
+  p.init <- c(efficiency=mom$efficiency, lambda0=mom$lambda0)
+  ctrl$fnscale <- -abs(logl(p.init) - logl(p.init * c(0.9, 0.9)))
+  ctrl$parscale <- c(efficiency=p.init['efficiency']/10, lambda0=p.init['lambda0']/10)
+  r <- optim(par=p.init, fn=logl, method="Nelder-Mead", control=ctrl)
 
   # Compute p0
   p0 <- if (threshold > 0)
@@ -479,11 +482,11 @@ as.gwpcrpois.frame <- function(formula, data) {
   formula.t <- terms(formula)
   group.key <- labels(formula.t)
   counts.expr <- attr(formula.t, "variables")[[1 + attr(formula.t, "response")]]
-  list(group.key=group.key, frame=data[, list(n.umis=.N, count=eval(counts.expr)), keyby=group.key])
+  data[, list(n.umis=.N, count=eval(counts.expr)), keyby=group.key]
 }
 
 gwpcrpois.grouped.frame <- function(frame) {
-  frame[, list(), keyby=key(frame)]
+  frame[, list(dummy=1), keyby=key(frame)][, dummy := NULL]
 }
 
 # ***************************************************************************************
@@ -500,6 +503,7 @@ gwpcrpois.estimator.groups.raw <- function(frame, frame.grp=NULL, method, thresh
     lapply
   }
   use.nonconv.groupest <- as.logical(ctrl.get("use.nonconv.groupest", FALSE))
+  obs.min.ingroup <- as.integer(ctrl.get("obs.min.ingroup", 5))
   include.mean.var <- as.logical(ctrl.get("include.mean.var", FALSE))
   verbose <- as.logical(ctrl.get("verbose", FALSE))
 
@@ -536,7 +540,7 @@ gwpcrpois.estimator.groups.raw <- function(frame, frame.grp=NULL, method, thresh
 
     # Generate row
     r[, c("n.umis", "n.obs", "efficiency.raw", "lambda0.raw", "loss.raw") :=
-        list(frame[k, n.umis], length(obs), m$efficiency, m$lambda0, m$loss)]
+        list(frame[k, n.umis[1] ], length(obs), m$efficiency, m$lambda0, m$loss)]
   }))
   setkeyv(frame.grp, group.key)
 
@@ -551,6 +555,7 @@ gwpcrpois.estimator.groups.shrink <- function(frame, method, threshold, molecule
                                               loss, ctrl=list())
 {
   verbose <- as.logical(ctrl.get("verbose", FALSE))
+  use.nonconv.globalest <-  as.logical(ctrl.get("use.nonconv.globalest", FALSE))
   var.est.distfree <- as.logical(ctrl.get("var.est.distfree", TRUE))
   include.mean.var <- as.logical(ctrl.get("include.mean.var", FALSE))
 
