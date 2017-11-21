@@ -560,7 +560,7 @@ gwpcrpois.groupest.raw <- function(frame, frame.grp, method, threshold,
     obs <- frame[k, count]
     m <- if (length(obs) >= obs.min.ingroup)
       tryCatch(gwpcrpois.est(obs, must.converge=!use.nonconv.groupest, loss=loss,
-                             threshold=threshold, molecules=molecules, ctrl=list()),
+                             threshold=threshold, molecules=molecules, ctrl=ctrl),
                error=function(e) {
                  cat(paste0("Failed to estimate parameters for group (",
                             paste0(lapply(k, as.character), collapse=","),
