@@ -5,7 +5,7 @@ context('Groupwise Parameter Estimation')
 EPS.REL <- 2e-1
 
 test_that("between-group variance estimates", {
-  n.obs <- rep(c(5, 15, 50, 150, 500), times=c(50, 50, 50, 50, 50))
+  n.obs <- rep(c(5, 15, 50, 150, 500), times=c(200, 200, 200, 200, 200))
   efficiency <- 0.5
   efficiency.sd <- 0.1
   lambda0 <- 5
