@@ -20,7 +20,7 @@ test_that("between-group variance estimates", {
                                         efficiency=efficiency.true,
                                         lambda0=lambda0.true))
                 , by=g]
-  g.est <- gwpcrpois.est.groups(count ~ g, g.obs, threshold=0, molecules=1)
+  g.est <- gwpcrpois.groupest(count ~ g, g.obs, threshold=0, molecules=1)
 
   expect_lt(abs(sqrt(g.est$efficiency.grp.var[1]) - efficiency.sd) / efficiency.sd, EPS.REL)
   expect_lt(abs(sqrt(g.est$lambda0.grp.var[1]) - lambda0.sd) / lambda0.sd, EPS.REL)

@@ -225,13 +225,15 @@ gwpcrpois.est <- function(x=NULL, mean=NULL, var=NULL, n.umis=NULL, method="mom"
 #' @seealso \code{\link{gwpcrpois}}
 #'
 #' @export
-gwpcrpois.est.groups <- function(formula, data, method="mom", threshold=1, molecules=1,
-                                 loss=expression(p0), ctrl=list())
+gwpcrpois.groupest <- function(formula, data, method="mom", threshold=1, molecules=1,
+                               loss=expression(p0), ctrl=list())
 {
   # Get control parameters
   verbose <- as.logical(ctrl.get("verbose", FALSE))
+  use.nonconv.globalest <-  as.logical(ctrl.get("use.nonconv.globalest", FALSE))
+  include.mean.var <- as.logical(ctrl.get("include.mean.var", FALSE))
 
-    if (!class(formula) == "formula")
+  if (!class(formula) == "formula")
     stop("formula must be a 'formula', see help(formula)")
   data <- as.data.table(data)
   method <- match.arg(method, c("mom", "mle"))
@@ -247,13 +249,34 @@ gwpcrpois.est.groups <- function(formula, data, method="mom", threshold=1, molec
     stop('ctrl must be a list')
 
   # Convert to "frame", i.e. a data.table with group key columns, "n.umis" and "count".
-  frame <- as.gwpcrpois.frame(formula, data)
+  frame <- gwpcrpois.groupest.frame(formula, data)
   if (nrow(frame[!is.finite(count) | (count < threshold)]) > 0)
     stop("data contains non-finite counts or counts below the threshold")
 
-  # Run shrinkage estimator
-  r <- gwpcrpois.estimator.groups.shrink(frame, method, threshold=threshold,
-                                         molecules=molecules, loss=loss, ctrl=ctrl)
+  # Compute global parameter estimates
+  if (verbose)
+    message("Computing overall parameter estimates")
+  mean.all = frame[, mean(count)]
+  var.all = frame[, var(count)]
+  m.all <- gwpcrpois.est(frame$count, method=method, must.converge=!use.nonconv.globalest,
+                         loss=loss, threshold=threshold, molecules=molecules, ctrl=ctrl)
+
+  # Group data, add global estimate as columns for convenience
+  frame.grp <- frame[, list(dummy=1), keyby=key(frame)][, dummy := NULL]
+  if (include.mean.var)
+    frame.grp[, c("mean.all", "var.all") := list(mean(frame$count), var(frame$count)) ]
+  frame.grp[, c("efficiency.all", "lambda0.all", "loss.all") :=
+              list(m.all$efficiency, m.all$lambda0, m.all$loss) ]
+
+  # Estimate raw group-wise parameters efficiency.raw, lambda0.raw, loss.raw
+  frame.grp <- gwpcrpois.groupest.raw(frame, frame.grp, method, threshold=threshold,
+                                      molecules=molecules, loss=loss, ctrl)
+
+  # Estimage between-groups and estimator variances
+  frame.grp <- gwpcrpois.groupest.var(frame.grp, ctrl)
+
+  # Shrink raw estimates
+  frame.grp <- gwpcrpois.groupest.shrink(frame.grp, ctrl)
 
   # Correct for unobserved UMIs, i.e. compute
   #            n
@@ -261,9 +284,9 @@ gwpcrpois.est.groups <- function(formula, data, method="mom", threshold=1, molec
   #    tot   1 - loss
   if (verbose)
     message("Computing n.tot")
-  r[, n.tot := ifelse(is.finite(loss), n.umis / (1 - loss), NA) ]
+  frame.grp[, n.tot := ifelse(is.finite(loss), n.umis / (1 - loss), NA) ]
 
-  return(r)
+  return(frame.grp)
 }
 
 #' Compatibility wrapper of \code{\link{gwpcrpois.est}}
@@ -290,7 +313,6 @@ gwpcrpois.mle <- function(c, threshold=1, molecules=1) {
 # ***************************************************************************************
 # Method of Moments (MoM) Estimator
 # ***************************************************************************************
-
 gwpcrpois.estimator.mom <- function(mean, var, threshold, molecules, ctrl) {
   # If the threshold is non-zero, we resort to a numerical solution
   exact.solution <- (threshold == 0)
@@ -418,7 +440,6 @@ gwpcrpois.estimator.mom <- function(mean, var, threshold, molecules, ctrl) {
 # ***************************************************************************************
 # Maximum Likelihood (ML) Estimator
 # ***************************************************************************************
-
 gwpcrpois.estimator.mle <- function(c, threshold, molecules, ctrl) {
   # Since evaluating the PCR-Poisson mixture is slow, we optimize by evaluating it only
   # once for each unique observed count, and multiplying the log-likelihood with the
@@ -471,9 +492,12 @@ gwpcrpois.estimator.mle <- function(c, threshold, molecules, ctrl) {
 }
 
 # ***************************************************************************************
-# Data Grouping
+# Group-wise Shrinkage Estimator
 # ***************************************************************************************
-as.gwpcrpois.frame <- function(formula, data) {
+
+# Data Normalization
+# ---------------------------------------------------------------------------------------
+gwpcrpois.groupest.frame <- function(formula, data) {
   # Subset data to have a single "counts" columns, follows by the key columns defining
   # the groups (e.g. the gene name, but there can be more than one, e.g. sample and gene).
   # If the LHS of the formula contains an expressionlike c(col1, col2), the resulting
@@ -485,15 +509,10 @@ as.gwpcrpois.frame <- function(formula, data) {
   data[, list(n.umis=.N, count=eval(counts.expr)), keyby=group.key]
 }
 
-gwpcrpois.grouped.frame <- function(frame) {
-  frame[, list(dummy=1), keyby=key(frame)][, dummy := NULL]
-}
-
-# ***************************************************************************************
 # Raw Groupwise Estimator
-# ***************************************************************************************
-gwpcrpois.estimator.groups.raw <- function(frame, frame.grp=NULL, method, threshold,
-                                           molecules, loss=expression(p0), ctrl=list())
+# ---------------------------------------------------------------------------------------
+gwpcrpois.groupest.raw <- function(frame, frame.grp, method, threshold,
+                                   molecules, loss=expression(p0), ctrl=list())
 {
   # Get control parameters
   cores <- as.numeric(ctrl.get("cores", 1))
@@ -506,10 +525,6 @@ gwpcrpois.estimator.groups.raw <- function(frame, frame.grp=NULL, method, thresh
   obs.min.ingroup <- as.integer(ctrl.get("obs.min.ingroup", 5))
   include.mean.var <- as.logical(ctrl.get("include.mean.var", FALSE))
   verbose <- as.logical(ctrl.get("verbose", FALSE))
-
-  # Generate frame with one raw per group (unless one was provided)
-  if (is.null(frame.grp))
-    frame.grp <- gwpcrpois.grouped.frame(frame)
 
   # Compute raw (group-wise) parameter estimates
   if (verbose)
@@ -548,35 +563,12 @@ gwpcrpois.estimator.groups.raw <- function(frame, frame.grp=NULL, method, thresh
   return(frame.grp)
 }
 
-# ***************************************************************************************
-# Shrinkage Estimator
-# ***************************************************************************************
-gwpcrpois.estimator.groups.shrink <- function(frame, method, threshold, molecules,
-                                              loss, ctrl=list())
+# Variance Estimator
+# ---------------------------------------------------------------------------------------
+gwpcrpois.groupest.var <- function(frame.grp, ctrl=list())
 {
   verbose <- as.logical(ctrl.get("verbose", FALSE))
-  use.nonconv.globalest <-  as.logical(ctrl.get("use.nonconv.globalest", FALSE))
   var.est.distfree <- as.logical(ctrl.get("var.est.distfree", TRUE))
-  include.mean.var <- as.logical(ctrl.get("include.mean.var", FALSE))
-
-  # Compute global parameter estimates
-  if (verbose)
-    message("Computing overall parameter estimates")
-  mean.all = frame[, mean(count)]
-  var.all = frame[, var(count)]
-  m.all <- gwpcrpois.est(frame$count, method=method, must.converge=!use.nonconv.globalest,
-                         loss=loss, threshold=threshold, molecules=molecules, ctrl=ctrl)
-
-  # Group data, add global estimate as columns for convenience
-  frame.grp <- gwpcrpois.grouped.frame(frame)
-  if (include.mean.var)
-    frame.grp[, c("mean.all", "var.all") := list(mean(frame$count), var(frame$count)) ]
-  frame.grp[, c("efficiency.all", "lambda0.all", "loss.all") :=
-              list(m.all$efficiency, m.all$lambda0, m.all$loss) ]
-
-  # Estimate raw group-wise parameters efficiency.raw, lambda0.raw, loss.raw
-  frame.grp <- gwpcrpois.estimator.groups.raw(frame, frame.grp, method, threshold=threshold,
-                                              molecules=molecules, loss=loss, ctrl)
 
   # Estimate variance of loss^raw (and also lambda0^raw, efficiency^raw) as a function
   # of the number of observed UMIs n.
@@ -727,6 +719,15 @@ gwpcrpois.estimator.groups.shrink <- function(frame, method, threshold, molecule
     variance.estimates.normal("lambda0")
   }
 
+  return(frame.grp)
+}
+
+# Shrinkage Estimator
+# ---------------------------------------------------------------------------------------
+gwpcrpois.groupest.shrink <- function(frame.grp, ctrl=list())
+{
+  verbose <- as.logical(ctrl.get("verbose", FALSE))
+
   # Compute shrunken estimates of loss, efficiency and lambda0 i.e.
   #
   #         all   v_e      raw
@@ -749,283 +750,4 @@ gwpcrpois.estimator.groups.shrink <- function(frame, method, threshold, molecule
   frame.grp[!is.finite(lambda0), lambda0 := lambda0.all ]
 
   return(frame.grp)
-}
-
-# ***************************************************************************************
-# Original Monolithic Shrinkage Estimator Implementation
-# ***************************************************************************************
-gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1, loss=expression(p0), ctrl=list()) {
-  # Get control parameters
-  ctrl.get <- function(key, default) {
-    r <- ctrl[[key]]
-    if (!is.null(r))
-      r
-    else
-      default
-  }
-  cores <- as.numeric(ctrl.get("cores", 1))
-  my.lapply <- if (cores > 1) {
-    function(...) { mclapply(..., mc.cores=cores, mc.preschedule=TRUE, mc.cleanup=TRUE) }
-  } else {
-    lapply
-  }
-  verbose <- as.logical(ctrl.get("verbose", FALSE))
-  var.est.distfree <- as.logical(ctrl.get("var.est.distfree", TRUE))
-  obs.min.ingroup <- as.numeric(ctrl.get("obs.min.ingroup", 6))
-  use.nonconv.groupest <- as.logical(ctrl.get("use.nonconv.groupest", FALSE))
-  
-  # Subset data to have a single "counts" columns, follows by the key columns defining
-  # the groups (e.g. the gene name, but there can be more than one, e.g. sample and gene).
-  # If the LHS of the formula contains an expressionlike c(col1, col2), the resulting
-  # table will have more rows than "data". This allows counts in multiple columns to be
-  # treated together (e.g. read counts for the plus and minus strand).
-  formula.t <- terms(formula)
-  group.key <- labels(formula.t)
-  counts.expr <- attr(formula.t, "variables")[[1 + attr(formula.t, "response")]]
-  data <- data[, list(n.umis=.N, count=eval(counts.expr)), keyby=group.key]
-  if (nrow(data[!is.finite(count) | (count < threshold)]) > 0)
-    stop("data contains non-finite counts or counts below the threshold")
-
-  # Compute global parameter estimates
-  if (verbose)
-    message("Computing overall parameter estimates")
-  mean.all = data[, mean(count)]
-  var.all = data[, var(count)]
-  m.all <- gwpcrpois.mom(mean.all, var.all,
-                         threshold=threshold, molecules=molecules,
-                         ctrl=ctrl)
-  eval.loss.env <- new.env(parent=parent.frame())
-  eval.loss <- function(efficiency, lambda0, p0) {
-    eval.loss.env$efficiency <- efficiency
-    eval.loss.env$lambda0 <- lambda0
-    eval.loss.env$p0 <- p0
-    tryCatch(eval(loss, envir=eval.loss.env),
-             error=function(e) { warning(conditionMessage(e)) ; NA})
-  }
-
-  # Use the global estimates are starting point for further group-wise parameter estimation
-  ctrl$initial <- m.all
-  
-  # Compute raw (group-wise) mean and variance estimates, add global estimates are columns
-  if (verbose)
-    message("Aggregating data per group")
-  data.gen <- data[, list(mean.all=mean.all,
-                          var.all=var.all,
-                          efficiency.all=m.all$efficiency,
-                          lambda0.all=m.all$lambda0,
-                          loss.all=eval.loss(m.all$efficiency, m.all$lambda0, m.all$p0),
-                          mean.raw=mean(count),
-                          var.raw=var(count),
-                          n.umis=n.umis[1],
-                          n.obs=.N),
-                   keyby=group.key]
-  
-  # Compute raw (group-wise) parameter estimates
-  if (verbose)
-    message("Computing group-wise parameter estimates on ", cores, " cores")
-  data.gen.keys <- do.call(mapply, c(list(list), data.gen[, ..group.key], list(SIMPLIFY=FALSE)))
-  data.gen <- rbindlist(my.lapply(data.gen.keys, function(k) {
-    data.gen[k,][, c('efficiency.raw', 'lambda0.raw', 'loss.raw') := {
-      tryCatch({
-        if (is.finite(mean.raw) && is.finite(var.raw) && (n.obs >= obs.min.ingroup)) {
-          m <- gwpcrpois.mom(mean.raw, var.raw, threshold=threshold, molecules=molecules,
-                             ctrl=ctrl, nonconvergence.is.error=!use.nonconv.groupest)
-          list(m$efficiency, m$lambda0, eval.loss(m$efficiency, m$lambda0, m$p0))
-        } else
-          list(NA, NA, NA)
-      }, error=function(e) {
-        cat(paste0("Failed to solve parameters for group (",
-                   paste0(lapply(k, as.character), collapse=","),
-                   "): ", conditionMessage(e), "\n"), file = stderr())
-        list(NA, NA, NA)
-      })
-    }]
-  }))
-  setkeyv(data.gen, group.key)
-  
-  # Estimate variance of loss^raw (and also lambda0^raw, efficiency^raw) as a function
-  # of the number of observed UMIs n.
-  #
-  # This is the distribution-free version of the estimator. We assume the mean loss is
-  # independent from n^obs. For a fixed n^obs, the expected value of (loss^raw - m)^2
-  # is then v_g + v_e / n^obs. We find v_g and v_e by mininizing the squared deviation
-  # of the (single-point) variance estimate (loss^raw - m)^2 and the predictor. Since
-  # variances are generally bigger for small n^obs, minimizing an unweighted sum of
-  # square deviations would allow loss estimates for small n^obs to influence the
-  # estimation unduely strongly. We correct for this by weigthing the squared deivations
-  # with n^obs (which matches the expected drop in scale), and thus minimize the sum
-  #
-  #                                               2
-  #    /                                        \
-  #   |  (loss^raw - m)^2  -  v_g - v_e / n^obs |   * w(n^obs), where w(n) = n / (1 + n/W)
-  #    \                                        /
-  #
-  # over all genes. m is the sample mean over all genes. We start the numerical
-  # search with v_g = v_e = v/2, where v is the sampling variance of the loss.
-  variance.estimates.distfree <- function(x.name) {
-    # Parameter W controls the grow behaviour of weights. For small n.obs, the weights
-    # equal n.obs, but as n.obs grows, weights eventually converge to W.
-    W <- 100
-    if (verbose)
-      message("Estimating variances of ", x.name, " using the distribution-free algorithm")
-    x <- parse(text=paste0(x.name, ".raw"))
-    # Find least-squared estimates for v_g, v_e.
-    r <- data.gen[is.finite(eval(x)) & (n.obs > 0), {
-      y <- (eval(x) - mean(eval(x), na.rm=TRUE))^2
-      x <- cbind(v_g=rep(1, .N), v_e=1/n.obs)
-      w <- n.obs / (1 + n.obs / W)
-      lsfit(x, y, wt=w, intercept=FALSE)$coefficients
-    } ]
-    if (all(r < 0)) {
-      stop("both variance estimators are negative")
-    } else if (r["v_g"] < 0) {
-      warning("variance of ", x.name, " between groups estimated to be negative, setting to zero")
-      # Between-gene variance estimate is negative. Assume between-gene variance
-      # is negligible, and estimate only the estimator variance.
-      r <- c(v_g=0, data.gen[is.finite(eval(x)) & (n.obs > 0), {
-        y <- (eval(x) - mean(eval(x), na.rm=TRUE))^2
-        x <- cbind(v_e=1/n.obs)
-        w <- n.obs
-        lsfit(x, y, wt=w, intercept=FALSE)$coefficients["v_e"]
-      } ])
-    } else if (r["v_e"] < 0) {
-      warning("estimator variance of ", x.name, " within groups estimated to be negative, setting to zero")
-      # Estimate of estimator variance is negative. Assume estimator variance is
-      # negligible, and estimate only the between-gene variance.
-      r <- c(v_g=data.gen[is.finite(eval(x)) & (n.obs > 0), var(eval(x), na.rm=TRUE)], v_e=0)
-    }
-    if (any(r < 0))
-      stop("some variance estimators are negative")
-    # Add columns
-    data.gen[, paste0(x.name, ".grp.var") := r["v_g"]]
-    data.gen[, paste0(x.name, ".raw.var") := r["v_e"] / n.obs]
-  }
-
-  # Estimate variance of p_0^raw (and also lambda0^raw, efficiency^raw) as a function
-  # of the number of observed UMIs n.
-  #
-  # We assume that p_0^raw | n ~ Beta( a(n), b(n) ), with a fixed expectation m and
-  # n-dependent variance comprising a estimation error that decreases with 1/n and a
-  # constant part that reflects the variance of the loss between groups,
-  #
-  #        raw
-  #    V( p    | n) = v(n) = v + v  /  n. 
-  #        0                  g   e
-  #
-  # From the mean (assumed constant) and variance of the Beta distribution it follows that
-  #
-  #                                                      m * (1 - m)
-  #   a(n) = m * f(n), b(n) = (1-m) * f(n) where f(n) = ------------- - 1.
-  #                                                           v
-  #                                                            e
-  #                                                       v + ---
-  #                                                        g   n
-  #
-  # For m we used the sample mean over all genes, and for v_g and v_e ML estimates
-  # found using numerical optimzation. We start the numerical search with
-  # v_g = v_e = v/2, where v is the sampling variance of the loss over all genes (limited
-  # to the possible range (0, m * (1 - m) ).
-  #
-  # efficiency^raw is handled similarly. For lambda0^raw, the beta distribution
-  # is replaced by a normal distribution.
-  variance.estimates.beta <- function(x.name) {
-    if (verbose)
-      message("Estimating variances of ", x.name, " assuming a beta distribution")
-    x <- parse(text=paste0(x.name, ".raw"))
-    # For the mean use the sampling mean, since we assume it's independent of n
-    m <- data.gen[, mean(eval(x), na.rm=TRUE) ]
-    # Compute quantity to minimize, i.e. negative log-liklihood
-    # We contract "x" a bit towards 0.5 to ensure that all values are strictly
-    # greater than 0 and less than 1 -- otherwise, the log-likelihood becomes -Inf.
-    # M is the contraction factor, i.e. we move X to the interval [M/2, 1-M/2]
-    M <- 1e-6
-    logl <- function(p) {
-      # Reject invalid parameters. Note that the beta variance is always <= m * (1-m).
-      if (any(p <= 0) || (p["v_g"] >= m * (1-m)))
-        return(NA)
-      # Evaluate likelihoods. We strict shape1,2 to >= 1 to ensure monomodality
-      -sum(data.gen[is.finite(eval(x)) & (n.obs > 0), {
-        f <- pmax(m * (1-m) / (p["v_g"] + p["v_e"] / n.obs) - 1, 1/m, 1/(1-m))
-        dbeta(M/2 + eval(x)*(1-M), shape1=m*f, shape2=(1-m)*f, log=TRUE)
-      }])
-    }
-    # Optimize v_g and v_e. Initially, we split the total observed variance evenly
-    # between v_g and v_e / n.obs for the smallest positive group size n.obs.
-    v <- data.gen[, min(var(eval(x), na.rm=TRUE), m * (1-m) ) ]
-    n.min <- data.gen[n.obs > 0, min(n.obs) ]
-    r <- optim(fn=logl, par=c(v_g=v/2, v_e=n.min*v/2), method="Nelder-Mead")
-    # Correct variances for the previous contraction
-    v_g <- r$par["v_g"] / (1-M)^2
-    v_e <- r$par["v_e"] / (1-M)^2
-    # Add columns
-    data.gen[, paste0(x.name, ".raw.var") := v_e / n.obs]
-    data.gen[, paste0(x.name, ".grp.var") := v_g]
-  }
-  variance.estimates.normal <- function(x.name) {
-    if (verbose)
-      message("Estimating variances of ", x.name, " assuming a normal distribution")
-    x <- parse(text=paste0(x.name, ".raw"))
-    m <- data.gen[, mean(eval(x), na.rm=TRUE) ]
-    v <- data.gen[, var(eval(x), na.rm=TRUE) ]
-    # Compute quantity to minimize, i.e. negative log-liklihood
-    logl <- function(p) {
-      # Reject invalid parameters
-      if (any(p < 0))
-        return(NA)
-      # Evaluate likelihoods
-      -sum(data.gen[is.finite(eval(x)) & (n.obs > 0),
-        dnorm(eval(x), mean=m, sd=sqrt(p["v_g"] + p["v_e"] / n.obs), log=TRUE)
-      ])
-    }
-    r <- optim(fn=logl, par=c(v_g=v/2, v_e=v/2), method="Nelder-Mead")
-    # Add columns
-    data.gen[, paste0(x.name, ".raw.var") := r$par["v_e"] / n.obs ]
-    data.gen[, paste0(x.name, ".grp.var") := r$par["v_g"] ]
-  }
-  if (var.est.distfree) {
-    variance.estimates.distfree("loss")
-    variance.estimates.distfree("efficiency")
-    variance.estimates.distfree("lambda0")
-  } else {
-    variance.estimates.beta("loss")
-    variance.estimates.beta("efficiency")
-    variance.estimates.normal("lambda0")
-  }
-  
-  # Compute shrunken estimates of loss, efficiency and lambda0 i.e.
-  # 
-  #         all   v_e      raw
-  #        p    * ---  +  p    * v_g 
-  #         0      n       0
-  #   p = -----------------------------------.
-  #    0          v_e
-  #               ---  +  v_g
-  #                n
-  #
-  # and similarly for the other two quantities
-  if (verbose)
-    message("Computing final parameter estimates")
-  data.gen[, loss := (loss.all * loss.raw.var + loss.raw * loss.grp.var) / (loss.raw.var + loss.grp.var) ]
-  data.gen[, efficiency := (efficiency.all * efficiency.raw.var + efficiency.raw * efficiency.grp.var) / (efficiency.raw.var + efficiency.grp.var) ]
-  data.gen[, lambda0 := (lambda0.all * lambda0.raw.var + lambda0.raw * lambda0.grp.var) / (lambda0.raw.var + lambda0.grp.var) ]
-  # If the local estimate is NA, use the global one
-  data.gen[!is.finite(loss), loss := loss.all ]
-  data.gen[!is.finite(efficiency), efficiency := efficiency.all ]
-  data.gen[!is.finite(lambda0), lambda0 := lambda0.all ]
-  
-  # Correct for unobserved UMIs, i.e. compute
-  #                    n
-  #   n   = -----------------------
-  #    tot   (1 - p_0^)^cliquesize
-  #
-  # cliquesize is the number of molecules that are subjected to thresholding
-  # together, i.e. ALL of them are dropped if ANY has a read count below the threshold.
-  if (verbose)
-    message("Computing n.tot")
-  data.gen[, n.tot := ifelse(is.finite(loss),
-                             n.umis / (1 - loss),
-                             NA) ]
-
-  # Return data
-  return(data.gen)
 }
