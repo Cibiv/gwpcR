@@ -222,6 +222,26 @@ gwpcrpois.est <- function(x=NULL, mean=NULL, var=NULL, n.umis=NULL, method="mom"
 
 #' Group-wise Parameter Estimation for PCR-Poisson Mixture
 #'
+#' @param formula XXX Write Me
+#'
+#' @param data XXX Write Me
+#'
+#' @param method the estimation method to use, either 'mle' for \emph{maximum
+#'   likelihood estimation} or 'mom' for \emph{method of moments}. See Details.
+#'
+#' @inheritParams gwpcrpois
+#'
+#' @param loss an expression specifying how the loss, i.e. the percentage of
+#'   all molecules (or UMIs) that was not observed, or removed by the read
+#'   count threshold.
+#'
+#' @param ctrl a list of settings controlling the estimation procedure.
+#'   Difference estimation methods recognize different possible \var{ctrl}
+#'   settings, unrecognized settings are ignored without warning. See Details
+#'   for the settings relevant to each estimation method.
+#'
+#' @details XXX
+#'
 #' @seealso \code{\link{gwpcrpois}}
 #'
 #' @export
