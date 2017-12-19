@@ -99,16 +99,18 @@ rgwpcrpois <- function(n, efficiency, lambda0, threshold=1, molecules=1, cycles=
     # more than one iteration.
     k <- ceiling((n - j) / p.th)
     k <- ceiling(k + 3*sqrt(k*p.th*(1-p.th)))
-    
+
     s.c <- if (method == "simulate") {
       # Generate read counts by sampling from the PCR-Poisson distribution
       .C(gwpcrpois_simulate_c,
          nsamples=as.integer(k),
          samples=double(k),
+         samples_tmp=double(k),
          efficiency=as.double(efficiency),
          lambda0=as.double(lambda0),
          molecules=as.double(molecules),
-         ncycles=as.integer(cycles),
+         mincycles=as.integer(cycles),
+         maxcycles=as.integer(cycles),
          NAOK=TRUE)$samples
     } else if (method == "gamma") {
       # Generate read counts by replacing the PCR distribution with its gamma

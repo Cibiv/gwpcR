@@ -52,6 +52,12 @@
 #'   a large enough value is used to make the results virtually idistinguishable
 #'   from the limit for \eqn{cycles \to \infty}
 #'
+#' @param allow.ties by default, the simulation continues after \var{cycles}
+#'   cycles until no more ties (i.e. two values with the same value) are found
+#'   within the generated samples. If \var{allow.ties} is set to \code{TRUE},
+#'   the simulation is always stopped after the specified number of cycles, and
+#'   the generated samples may contain ties.
+#'
 #' @details The binomial Galton-Watson PCR model treats PCR as a branching
 #'   process. At time 0, the absolute number of molecules \eqn{c_n} is the
 #'   initial copy number \var{molecules}. Each time step from \eqn{c_n} to
@@ -93,7 +99,7 @@ NULL
 #' @rdname gwpcr
 #' @useDynLib gwpcR gwpcr_simulate_c
 #' @export
-rgwpcr <- function(n, efficiency, molecules=1, cycles=Inf) {
+rgwpcr <- function(n, efficiency, molecules=1, cycles=Inf, allow.ties=FALSE) {
   if (!is.numeric(n) || (length(n) != 1) || (n != floor(n)) || (n < 0))
     stop('n must be a non-negative integral scalar')
   if (!is.numeric(efficiency) || (length(efficiency) != 1) || (efficiency < 0) || (efficiency > 1))
@@ -102,7 +108,9 @@ rgwpcr <- function(n, efficiency, molecules=1, cycles=Inf) {
     stop('molecules must be a positive integral scalar')
   if (!is.numeric(cycles) || (length(cycles) != 1) || (cycles != floor(cycles)) || (cycles < 0))
     stop('cycles must be a positive integral scalar or +Infinity')
-  
+  if (!is.logical(allow.ties) || (length(allow.ties) != 1) || is.na(allow.ties))
+    stop('allow.ties must be true or false')
+
   # Determine a suitable cycle count if set to "Infinity", which we take
   # to mean "as many as necessary so that the results are virtually
   # indistinguishable from the limit case
@@ -124,16 +132,18 @@ rgwpcr <- function(n, efficiency, molecules=1, cycles=Inf) {
     # Should never happen
     NA
   }
-  
+
   # Generate samples of lambda
   if ((method == "simulate") && (efficiency < 1.0)) {
     # Generate read counts by sampling from the PCR-Poisson distribution
     .C(gwpcr_simulate_c,
        nsamples=as.integer(n),
        samples=double(n),
+       samples_tmp=double(n),
        efficiency=as.double(efficiency),
        molecules=as.double(molecules),
-       cycles=as.integer(cycles),
+       mincycles=as.integer(cycles),
+       maxcycles=if (allow.ties) as.integer(cycles) else .Machine$integer.max,
        NAOK=TRUE)$samples
   } else if ((method == "simulate") && (efficiency == 1.0)) {
     rep(1.0, n)
