@@ -510,8 +510,7 @@ gwpcrpois.groupest.frame <- function(formula, data) {
 
 # Raw Groupwise Estimator
 # ---------------------------------------------------------------------------------------
-gwpcrpois.groupest.raw <- function(frame, frame.grp, method, threshold,
-                                   molecules, loss=expression(p0), ctrl=list())
+gwpcrpois.groupest.raw <- function(frame, frame.grp, method, threshold,  molecules, loss, ctrl)
 {
   # Get control parameters
   cores <- as.numeric(ctrl.get("cores", 1))
@@ -564,7 +563,7 @@ gwpcrpois.groupest.raw <- function(frame, frame.grp, method, threshold,
 
 # Variance Estimator
 # ---------------------------------------------------------------------------------------
-gwpcrpois.groupest.var <- function(frame.grp, ctrl=list())
+gwpcrpois.groupest.var <- function(frame.grp, ctrl)
 {
   verbose <- as.logical(ctrl.get("verbose", FALSE))
   var.est.distfree <- as.logical(ctrl.get("var.est.distfree", TRUE))
@@ -723,7 +722,7 @@ gwpcrpois.groupest.var <- function(frame.grp, ctrl=list())
 
 # Shrinkage Estimator
 # ---------------------------------------------------------------------------------------
-gwpcrpois.groupest.shrink <- function(frame.grp, ctrl=list())
+gwpcrpois.groupest.shrink <- function(frame.grp, ctrl)
 {
   verbose <- as.logical(ctrl.get("verbose", FALSE))
 
