@@ -309,27 +309,6 @@ gwpcrpois.groupest <- function(formula, data, method="mom", threshold=1, molecul
   return(frame.grp)
 }
 
-#' Compatibility wrapper of \code{\link{gwpcrpois.est}}
-#'
-#' @seealso \code{\link{gwpcrpois.est}}
-#'
-#' @export
-gwpcrpois.mom <- function(mean, var, threshold=1, molecules=1,
-                          ctrl=list(), nonconvergence.is.error=FALSE)
-{
-  gwpcrpois.est(mean=mean, var=var, threshold=threshold, molecules=molecules,
-                must.converge=nonconvergence.is.error, ctrl=ctrl)
-}
-
-#' Compatibility wrapper of \code{\link{gwpcrpois.est}}
-#'
-#' @seealso \code{\link{gwpcrpois.est}}
-#'
-#' @export
-gwpcrpois.mle <- function(c, threshold=1, molecules=1) {
-  gwpcrpois.mle(c, threshold=threshold, molecules=molecules)
-}
-
 # ***************************************************************************************
 # Method of Moments (MoM) Estimator
 # ***************************************************************************************
