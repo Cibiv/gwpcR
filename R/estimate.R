@@ -227,11 +227,11 @@ gwpcrpois.est <- function(x=NULL, mean=NULL, var=NULL, n.umis=NULL, method="mom"
 #'   and \var{key1}, \var{key2}, ... are the column(s) that uniquely identify
 #'   a group. If multiple read counts are observed per UMI (for example if a
 #'   protocol that yields strand-specific counts for the two strands of double-
-#'   stranded molecules is used), \code{c(reads1, reads2, ...)} can be used for
-#'   \var{reads} to combine read counts from multiple columns. Note that in this
-#'   case, the default \var{loss} expression is probably not appropriate. All the
-#'   read counts in the columns listed in \var{reads} must be greater or equal
-#'   than \var{threshold}.
+#'   stranded molecules is used), \code{c(reads1, reads2, ...)} can be used as
+#'   the left hand side to combine read counts from multiple columns. Note that
+#'   in this case, the default \var{loss} expression is probably not appropriate.
+#'   All the #'   read counts in the columns listed in \var{reads} must be
+#'   greater or equal than \var{threshold}.
 #'
 #' @param data a \code{\link{data.frame}} or \code{\link{data.table}} with one
 #'   row per observed UMI. The required columns are determined by the \var{formula}.
