@@ -1,6 +1,7 @@
 library(gwpcR)
 context('Galton-Watson PCR-Poisson (gwpcrpois) parameter estimation')
 
+N <- 1e5
 EPS.ABS <- 5e-2
 EPS.REL <- 5e-2
 
@@ -35,63 +36,63 @@ test_est <- function(efficiency, lambda0, n.obs, molecules, threshold, method) {
 # Method of Moments
 # ***************************************************************************************
 # Molecules: 1, Threshold: 1
-test_est(0.01, 18, 1e4, 1, 1, 'mom')
-test_est(0.05, 17, 1e4, 1, 1, 'mom')
-test_est(0.1 , 16, 1e4, 1, 1, 'mom')
-test_est(0.2 , 15, 1e4, 1, 1, 'mom')
-test_est(0.3 , 14, 1e4, 1, 1, 'mom')
-test_est(0.4 , 13, 1e4, 1, 1, 'mom')
-test_est(0.5 , 12, 1e4, 1, 1, 'mom')
-test_est(0.6 , 11, 1e4, 1, 1, 'mom')
-test_est(0.7 , 10, 1e4, 1, 1, 'mom')
-test_est(0.8 , 9, 1e4, 1, 1, 'mom')
-test_est(0.9 , 8, 1e4, 1, 1, 'mom')
-test_est(0.95, 7, 1e4, 1, 1, 'mom')
-test_est(0.99, 6, 1e4, 1, 1, 'mom')
-test_est(1.0 , 5, 1e4, 1, 1, 'mom')
+test_est(0.01, 18, N, 1, 1, 'mom')
+test_est(0.05, 17, N, 1, 1, 'mom')
+test_est(0.1 , 16, N, 1, 1, 'mom')
+test_est(0.2 , 15, N, 1, 1, 'mom')
+test_est(0.3 , 14, N, 1, 1, 'mom')
+test_est(0.4 , 13, N, 1, 1, 'mom')
+test_est(0.5 , 12, N, 1, 1, 'mom')
+test_est(0.6 , 11, N, 1, 1, 'mom')
+test_est(0.7 , 10, N, 1, 1, 'mom')
+test_est(0.8 , 9, N, 1, 1, 'mom')
+test_est(0.9 , 8, N, 1, 1, 'mom')
+test_est(0.95, 7, N, 1, 1, 'mom')
+test_est(0.99, 6, N, 1, 1, 'mom')
+test_est(1.0 , 5, N, 1, 1, 'mom')
 
 # Molecules: 1, Threshold > 1
-test_est(0.3 , 14, 1e4, 1, 5, 'mom')
-test_est(0.5 , 12, 1e4, 1, 5, 'mom')
-test_est(0.9 , 8, 1e4, 1, 4, 'mom')
-test_est(1.0 , 5, 1e4, 1, 4, 'mom')
+test_est(0.3 , 14, N, 1, 5, 'mom')
+test_est(0.5 , 12, N, 1, 5, 'mom')
+test_est(0.9 , 8, N, 1, 4, 'mom')
+test_est(1.0 , 5, N, 1, 4, 'mom')
 
 # Molecules: 2, Threshold > 1
-test_est(0.5 , 12, 1e4, 2, 5, 'mom')
-test_est(1.0 , 5, 1e4, 2, 4, 'mom')
+test_est(0.5 , 12, N, 2, 5, 'mom')
+test_est(1.0 , 5, N, 2, 4, 'mom')
 
 # Molecules: 3, Threshold > 1
-test_est(0.5 , 12, 1e4, 3, 5, 'mom')
-test_est(1.0 , 5, 1e4, 3, 4, 'mom')
+test_est(0.5 , 12, N, 3, 5, 'mom')
+test_est(1.0 , 5, N, 3, 4, 'mom')
 
 # ***************************************************************************************
 # Maximum Likelihood
 # ***************************************************************************************
-test_est(0.01, 18, 1e4, 1, 1, 'mle')
-test_est(0.05, 17, 1e4, 1, 1, 'mle')
-test_est(0.1 , 16, 1e4, 1, 1, 'mle')
-test_est(0.2 , 15, 1e4, 1, 1, 'mle')
-test_est(0.3 , 14, 1e4, 1, 1, 'mle')
-test_est(0.4 , 13, 1e4, 1, 1, 'mle')
-test_est(0.5 , 12, 1e4, 1, 1, 'mle')
-test_est(0.6 , 11, 1e4, 1, 1, 'mle')
-test_est(0.7 , 10, 1e4, 1, 1, 'mle')
-test_est(0.8 , 9, 1e4, 1, 1, 'mle')
-test_est(0.9 , 8, 1e4, 1, 1, 'mle')
-test_est(0.95, 7, 1e4, 1, 1, 'mle')
-test_est(0.99, 6, 1e4, 1, 1, 'mle')
-test_est(1.0 , 5, 1e4, 1, 1, 'mle')
+test_est(0.01, 18, N, 1, 1, 'mle')
+test_est(0.05, 17, N, 1, 1, 'mle')
+test_est(0.1 , 16, N, 1, 1, 'mle')
+test_est(0.2 , 15, N, 1, 1, 'mle')
+test_est(0.3 , 14, N, 1, 1, 'mle')
+test_est(0.4 , 13, N, 1, 1, 'mle')
+test_est(0.5 , 12, N, 1, 1, 'mle')
+test_est(0.6 , 11, N, 1, 1, 'mle')
+test_est(0.7 , 10, N, 1, 1, 'mle')
+test_est(0.8 , 9, N, 1, 1, 'mle')
+test_est(0.9 , 8, N, 1, 1, 'mle')
+test_est(0.95, 7, N, 1, 1, 'mle')
+test_est(0.99, 6, N, 1, 1, 'mle')
+test_est(1.0 , 5, N, 1, 1, 'mle')
 
 # Molecules: 1, Threshold > 1
-test_est(0.3 , 14, 1e4, 1, 5, 'mle')
-test_est(0.5 , 12, 1e4, 1, 5, 'mle')
-test_est(0.9 , 8, 1e4, 1, 4, 'mle')
-test_est(1.0 , 5, 1e4, 1, 4, 'mle')
+test_est(0.3 , 14, N, 1, 5, 'mle')
+test_est(0.5 , 12, N, 1, 5, 'mle')
+test_est(0.9 , 8, N, 1, 4, 'mle')
+test_est(1.0 , 5, N, 1, 4, 'mle')
 
 # Molecules: 2, Threshold > 1
-test_est(0.5 , 12, 1e4, 2, 5, 'mle')
-test_est(1.0 , 5, 1e4, 2, 2, 'mle')
+test_est(0.5 , 12, N, 2, 5, 'mle')
+test_est(1.0 , 5, N, 2, 2, 'mle')
 
 # Molecules: 3, Threshold > 1
-test_est(0.5 , 12, 1e4, 3, 5, 'mle')
-test_est(1.0 , 5, 1e4, 3, 2, 'mle')
+test_est(0.5 , 12, N, 3, 5, 'mle')
+test_est(1.0 , 5, N, 3, 2, 'mle')
