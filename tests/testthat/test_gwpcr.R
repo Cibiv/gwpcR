@@ -1,6 +1,6 @@
 library(gwpcR)
 library(data.table)
-context('Galton-Watson PCR Distribution (gwpcR)')
+context('Galton-Watson PCR (gwpcr) distribution functions')
 
 P.TH <- 0.1
 TRIALS <- 6

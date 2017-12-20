@@ -1,6 +1,6 @@
 library(gwpcR)
 library(data.table)
-context('Groupwise Parameter Estimation')
+context('Galton-Watson PCR-Poisson (gwpcrpois) group-wise parameter estimation')
 
 EPS.REL.VAR <- 25e-2
 ESP.REL.EFFICIENCY <- 10e-2

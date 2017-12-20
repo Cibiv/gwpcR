@@ -1,5 +1,5 @@
 library(gwpcR)
-context('Parameter Estimation')
+context('Galton-Watson PCR-Poisson (gwpcrpois) parameter estimation')
 
 EPS.ABS <- 5e-2
 EPS.REL <- 5e-2
