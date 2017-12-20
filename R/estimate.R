@@ -222,9 +222,19 @@ gwpcrpois.est <- function(x=NULL, mean=NULL, var=NULL, n.umis=NULL, method="mom"
 
 #' Group-wise Parameter Estimation for PCR-Poisson Mixture
 #'
-#' @param formula XXX Write Me
+#' @param formula Formula of the form \code{reads ~ key1 + key2 + ...},
+#'   where \var{reads} is the column containing the per-UMI read count,
+#'   and \var{key1}, \var{key2}, ... are the column(s) that uniquely identify
+#'   a group. If multiple read counts are observed per UMI (for example if a
+#'   protocol that yields strand-specific counts for the two strands of double-
+#'   stranded molecules is used), \code{c(reads1, reads2, ...)} can be used for
+#'   \var{reads} to combine read counts from multiple columns. Note that in this
+#'   case, the default \var{loss} expression is probably not appropriate. All the
+#'   read counts in the columns listed in \var{reads} must be greater or equal
+#'   than \var{threshold}.
 #'
-#' @param data XXX Write Me
+#' @param data a \code{\link{data.frame}} or \code{\link{data.table}} with one
+#'   row per observed UMI. The required columns are determined by the \var{formula}.
 #'
 #' @param method the estimation method to use, either 'mle' for \emph{maximum
 #'   likelihood estimation} or 'mom' for \emph{method of moments}. See Details.
@@ -233,7 +243,13 @@ gwpcrpois.est <- function(x=NULL, mean=NULL, var=NULL, n.umis=NULL, method="mom"
 #'
 #' @param loss an expression specifying how the loss, i.e. the percentage of
 #'   all molecules (or UMIs) that was not observed, or removed by the read
-#'   count threshold.
+#'   count threshold. In the simple case of each read count observation
+#'   representing a separate molecules, the default value \var{p0} is correct
+#'   -- the lost molecules are then simply those whose read count lies below
+#'   the specified \var{threshold}. In more complex scenarios, e.g. if a
+#'   single molecule produces separate read count for each strand, which are
+#'   then either both rejected or both accepted, the additional rejection cases
+#'   must be considered by a custom loss expression
 #'
 #' @param ctrl a list of settings controlling the estimation procedure.
 #'   Difference estimation methods recognize different possible \var{ctrl}
