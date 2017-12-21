@@ -99,7 +99,7 @@ NULL
 #' @rdname gwpcr
 #' @useDynLib gwpcR gwpcr_simulate_c
 #' @export
-rgwpcr <- function(n, efficiency, molecules=1, cycles=Inf, allow.ties=FALSE) {
+rgwpcr <- function(n, efficiency, molecules=1, cycles=Inf, allow.ties=is.finite(cycles)) {
   if (!is.numeric(n) || (length(n) != 1) || (n != floor(n)) || (n < 0))
     stop('n must be a non-negative integral scalar')
   if (!is.numeric(efficiency) || (length(efficiency) != 1) || (efficiency < 0) || (efficiency > 1))
@@ -110,6 +110,9 @@ rgwpcr <- function(n, efficiency, molecules=1, cycles=Inf, allow.ties=FALSE) {
     stop('cycles must be a positive integral scalar or +Infinity')
   if (!is.logical(allow.ties) || (length(allow.ties) != 1) || is.na(allow.ties))
     stop('allow.ties must be true or false')
+
+  if (!allow.ties && is.finite(cycles) && (efficiency==0))
+    stop('efficiency 0 and finite cycle count will always produce ties, but allow.ties is set to FALSE')
 
   # Determine a suitable cycle count if set to "Infinity", which we take
   # to mean "as many as necessary so that the results are virtually

@@ -48,7 +48,7 @@ void gwpcr_simulate_c(int *nsamples_, double *samples, double *samples_tmp, doub
 
   /* Simulate until no ties remain, but at most until maxcycles are reached */
   const int maxcycles = *maxcycles_;
-  for(; cycles <= maxcycles; ++cycles) {
+  for(; cycles < maxcycles; ++cycles) {
     /* Stop if there are no ties */
     int ties=0;
     memcpy(samples_tmp, samples, nsamples * sizeof(*samples_tmp));
