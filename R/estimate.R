@@ -116,7 +116,7 @@
 #'   closed formula is used to compute \var{efficiency} from \var{mean} and
 #'   \var{var}. The \var{ctrl} argument is not used in this case.
 #'
-#'   In case of a censored distribution, the sample mean is not a consistent
+#'   In case of a censored distribution, the \sample mean is not a consistent
 #'   estimator for \var{lambda0} because the expectation of the censored
 #'   distribution is in general larger than \var{lambda0}. The sample variance
 #'   simiarly deviates from the variance of the uncensored distribution.
@@ -264,7 +264,46 @@ gwpcrpois.est <- function(x=NULL, mean=NULL, var=NULL, n.umis=NULL, method="mom"
 #'   group-specific estimates, and the Details section for settings affecting
 #'   the shrinkage of those estimates.
 #'
-#' @details XXX
+#' @details Apart from the \var{ctrl} parameters described in
+#'   \code{\link{gwpcrpois.est}}, the following settings can be modified
+#'   \describe{
+#'   \item{core}{number of CPU cores to use to compute group-specific estimates.
+#'   If set to a value greather than 1, the \code{\link[=pkg]{parallel}} package
+#'   must be loaded.}
+#'
+#'   \item{obs.min.ingroup}{how many observed per-UMI read counts a group must
+#'   contain for group-specific estimates to be computed and used. Default is 5.}
+#'
+#'   \item{use.nonconv.globalest}{whether to use global estimates that didn't
+#'   fully converge (i.e. where \code{\link{gwpcrpois.est}} reported a value other
+#'   than \code{0} for \var{convergence}). Default is \code{FALSE}.}
+#'
+#'   \item{use.nonconv.groupest}{whether to use group-specific estimates
+#'   that didn't fully converge (i.e. where \code{\link{gwpcrpois.est}} reported
+#'   a value other than \code{0} for \var{convergence}). Default is \code{FALSE}.}
+#'
+#'   \item{include.mean.var}{whether to include columns with the group-wise
+#'   global mean and variance of readcounts in the output table. Default is
+#'   \code{FALSE}.}
+#'
+#'   \item{verbose}{whether to output progress and diagnostic messages, default
+#'   is \code{FALSE}.}
+#'   }
+#'
+#' @return a \code{\linkS4class{data.table}} containing one row per group, and
+#'   which besides the group key column(s) as indicated by the \var{formula},
+#'   contains the following columns
+#'
+#'   \item{efficiency}{the final group-specific estimate of the PCR efficiency}
+#'
+#'   \item{lambda0}{the final group-specific estimate of the number of reads per
+#'   molecule}
+#'
+#'   \item{loss}{the final group-specific estimate of the fraction of lost
+#'   molecules.}
+#'
+#'   \item{n.tot}{the final group-specific estimate of the total (loss-corrected)
+#'   number of molecules.}
 #'
 #' @seealso \code{\link{gwpcrpois}}
 #'

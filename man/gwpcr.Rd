@@ -9,7 +9,8 @@
 \alias{pgwpcr}
 \title{Binomial Galton-Watson Model for the Polymerase Chain Reaction (PCR)}
 \usage{
-rgwpcr(n, efficiency, molecules = 1, cycles = Inf)
+rgwpcr(n, efficiency, molecules = 1, cycles = Inf,
+  allow.ties = is.finite(cycles))
 
 dgwpcr(l, efficiency, molecules = 1)
 
@@ -29,6 +30,15 @@ pgwpcr(l, efficiency, molecules = 1)
 \item{cycles}{number of amplification cycles used for simulation. By default,
 a large enough value is used to make the results virtually idistinguishable
 from the limit for \eqn{cycles \to \infty}}
+
+\item{allow.ties}{by default, if \var{cycles} is set to "infinity" (which
+really means "sufficiency many"), the  simulation continues until no more
+ties (i.e. two values with the same value) are found within the generated
+samples. If \var{allow.ties} is set to \code{TRUE}, the simulation is
+always stopped after the numer of cycles estimated to be required for the
+results to be "close" to the limit distribution, regardless of whether the
+resulting family sizes contain duplicates. If a specific, finite sample count
+is specified, \var{allow.ties} defaults to \code{FALSE}.}
 
 \item{l}{molecular family size relative to the average}
 }

@@ -35,7 +35,7 @@ from the limit for \eqn{cycles \to \infty}}
 \item{c}{number of observations of a particular molecular family}
 }
 \description{
-Write Me
+XXX Write Me
 }
 \seealso{
 \code{\link{gwpcr}}

@@ -9,6 +9,10 @@ if [ "$ver" == "" ]; then
 	exit 1
 fi
 
+# Update NAMESPACE and man/*.Rd files. If this changes anything, the check for uncomitted
+# changes below will fire.
+Rscript -e 'roxygen2::roxygenize()'
+
 if [ "$(git symbolic-ref --short HEAD)" != "master" ]; then
 	echo "Currently checkout out branch must be 'master'" >&2
 	exit 1
