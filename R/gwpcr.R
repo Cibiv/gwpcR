@@ -52,11 +52,14 @@
 #'   a large enough value is used to make the results virtually idistinguishable
 #'   from the limit for \eqn{cycles \to \infty}
 #'
-#' @param allow.ties by default, the simulation continues after \var{cycles}
-#'   cycles until no more ties (i.e. two values with the same value) are found
-#'   within the generated samples. If \var{allow.ties} is set to \code{TRUE},
-#'   the simulation is always stopped after the specified number of cycles, and
-#'   the generated samples may contain ties.
+#' @param allow.ties by default, if \var{cycles} is set to "infinity" (which
+#'   really means "sufficiency many"), the  simulation continues until no more
+#'   ties (i.e. two values with the same value) are found within the generated
+#'   samples. If \var{allow.ties} is set to \code{TRUE}, the simulation is
+#'   always stopped after the numer of cycles estimated to be required for the
+#'   results to be "close" to the limit distribution, regardless of whether the
+#'   resulting family sizes contain duplicates. If a specific, finite sample count
+#'   is specified, \var{allow.ties} defaults to \code{FALSE}.
 #'
 #' @details The binomial Galton-Watson PCR model treats PCR as a branching
 #'   process. At time 0, the absolute number of molecules \eqn{c_n} is the

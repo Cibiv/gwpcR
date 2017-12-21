@@ -222,6 +222,12 @@ gwpcrpois.est <- function(x=NULL, mean=NULL, var=NULL, n.umis=NULL, method="mom"
 
 #' Group-wise Parameter Estimation for PCR-Poisson Mixture
 #'
+#' Estimates the parameters \var{efficiency} and \var{lambda0} separately for each
+#' \emph{group} of UMIs (i.e, for example separately for each gene, each exon, each
+#' cell, ...). To reduce the noise of the raw group-specific parameters, the raw
+#' group-specific parameters are \emph{shrunken} towards global estimates for
+#' \var{efficiency} and \var{lambda0} that are specified
+#'
 #' @param formula Formula of the form \code{reads ~ key1 + key2 + ...},
 #'   where \var{reads} is the column containing the per-UMI read count,
 #'   and \var{key1}, \var{key2}, ... are the column(s) that uniquely identify
@@ -230,8 +236,8 @@ gwpcrpois.est <- function(x=NULL, mean=NULL, var=NULL, n.umis=NULL, method="mom"
 #'   stranded molecules is used), \code{c(reads1, reads2, ...)} can be used as
 #'   the left hand side to combine read counts from multiple columns. Note that
 #'   in this case, the default \var{loss} expression is probably not appropriate.
-#'   All the #'   read counts in the columns listed in \var{reads} must be
-#'   greater or equal than \var{threshold}.
+#'   All the read counts in the columns listed in \var{reads} must be greater or
+#'   equal than \var{threshold}.
 #'
 #' @param data a \code{\link{data.frame}} or \code{\link{data.table}} with one
 #'   row per observed UMI. The required columns are determined by the \var{formula}.
@@ -253,8 +259,10 @@ gwpcrpois.est <- function(x=NULL, mean=NULL, var=NULL, n.umis=NULL, method="mom"
 #'
 #' @param ctrl a list of settings controlling the estimation procedure.
 #'   Difference estimation methods recognize different possible \var{ctrl}
-#'   settings, unrecognized settings are ignored without warning. See Details
-#'   for the settings relevant to each estimation method.
+#'   settings, unrecognized settings are ignored without warning. See
+#'   \code{\link{gwpcrpois.est}} for the \var{ctrl} settings affecting the raw
+#'   group-specific estimates, and the Details section for settings affecting
+#'   the shrinkage of those estimates.
 #'
 #' @details XXX
 #'
