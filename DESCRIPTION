@@ -9,6 +9,8 @@ Imports:
     akima (>= 0.5-10),
     data.table (>= 1.8.11),
     statmod
+Suggests:
+    dgof
 Author: Florian G. Pflug
 Maintainer: Florian G. Pflug <florian.pflug@univie.ac.at>
 Description: Implements the necessary distributions and parameter estimation
