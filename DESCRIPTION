@@ -10,6 +10,7 @@ Imports:
     data.table (>= 1.8.11),
     statmod
 Suggests:
+    testthat,
     dgof
 Author: Florian G. Pflug
 Maintainer: Florian G. Pflug <florian.pflug@univie.ac.at>
@@ -20,4 +21,3 @@ Description: Implements the necessary distributions and parameter estimation
     sequencing.
 License: GPL
 RoxygenNote: 6.0.1
-Suggests: testthat
