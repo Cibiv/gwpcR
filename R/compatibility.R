@@ -36,14 +36,25 @@ gwpcrpois.mle <- function(c, threshold=1, molecules=1) {
   gwpcrpois.mle(c, threshold=threshold, molecules=molecules)
 }
 
-#' Compatibility wrapper of \code{\link{gwpcrpois.est}}
+#' Compatibility wrapper of \code{\link{gwpcrpois.groupest}}
 #'
-#' @seealso \code{\link{gwpcrpois.est}}
+#' Uses the \emph{method of moments} and sets the \var{ctrl} parameters to
+#' their previous defaults, i.e. \code{include.mean.var=TRUE},
+#' \code{obs.min.ingroup=2} and \code{use.nonconv.groupest=TRUE}.
+#'
+#' @seealso \code{\link{gwpcrpois.groupest}}
 #'
 #' @export
 gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1,
                                     loss=expression(p0), ctrl=list()) {
-  ctrl$include.mean.var <- TRUE
+  # Backwards-compatible defaults
+  if (!('include.mean.var' %in% names(ctrl)))
+    ctrl$include.mean.var <- TRUE
+  if (!('obs.min.ingroup' %in% names(ctrl)))
+    ctrl$obs.min.ingroup <- 2
+  if (!('use.nonconv.groupest' %in% names(ctrl)))
+    ctrl$use.nonconv.groupest <- TRUE
+
   gwpcrpois.groupest(formula, data, method='mom', threshold=threshold,
                      molecules=molecules, ctrl=ctrl)
 }

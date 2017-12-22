@@ -2,14 +2,16 @@
 % Please edit documentation in R/compatibility.R
 \name{gwpcrpois.mom.groupwise}
 \alias{gwpcrpois.mom.groupwise}
-\title{Compatibility wrapper of \code{\link{gwpcrpois.est}}}
+\title{Compatibility wrapper of \code{\link{gwpcrpois.groupest}}}
 \usage{
 gwpcrpois.mom.groupwise(formula, data, threshold = 1, molecules = 1,
   loss = expression(p0), ctrl = list())
 }
 \description{
-Compatibility wrapper of \code{\link{gwpcrpois.est}}
+Uses the \emph{method of moments} and sets the \var{ctrl} parameters to
+their previous defaults, i.e. \code{include.mean.var=TRUE},
+\code{obs.min.ingroup=2} and \code{use.nonconv.groupest=TRUE}.
 }
 \seealso{
-\code{\link{gwpcrpois.est}}
+\code{\link{gwpcrpois.groupest}}
 }
