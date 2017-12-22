@@ -169,7 +169,7 @@ gwpcrpois.est <- function(x=NULL, mean=NULL, var=NULL, n.umis=NULL, method="mom"
   if (!(method %in% c("mom", "mle")))
     stop("method must be 'mom' or 'mle'")
   if (!is.logical(must.converge) || (length(must.converge) != 1) || is.na(must.converge))
-    stop('nonconvergence.is.error must be TRUE or FALSE')
+    stop('must.converge must be TRUE or FALSE')
   if (!is.numeric(threshold) || (length(threshold) != 1) || (threshold != floor(threshold)) || (threshold < 0))
     stop('threshold must be a non-negative integral scalar')
   if (!is.numeric(molecules) || (length(molecules) != 1) || (molecules != floor(molecules)) || (molecules < 1))
@@ -202,7 +202,7 @@ gwpcrpois.est <- function(x=NULL, mean=NULL, var=NULL, n.umis=NULL, method="mom"
 
   # Handle nonconvergence.is.error
   if (r$convergence != 0) {
-    if (nonconvergence.is.error)
+    if (must.converge)
       stop("gwpcrpois.mom did not converge")
     else
       warning("gwpcrpois.mom did not converge, returning best estimate so far")
