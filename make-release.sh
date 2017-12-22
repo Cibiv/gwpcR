@@ -46,5 +46,4 @@ echo "Pushing to origin" >&2
 git push origin master v$ver
 
 echo "Updating 'latest' on origin" >&2
-# tag would be more logical than head, but R's install_git only works for branches
-git push -f origin v$ver:refs/heads/latest-release
+git push -f origin v$ver:refs/tags/latest-release

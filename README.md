@@ -9,7 +9,7 @@ are
    `install.packages("devtools")`
 
 3. Install `gwpcR` from its github repository by typing
-   `devtools::install_git("https://github.com/Cibiv/gwpcR.git", branch="latest-release")`
+   `devtools::install_github("Cibiv/gwpcR", ref="latest-release")`
 
 # Publications
 
