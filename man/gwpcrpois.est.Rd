@@ -116,7 +116,7 @@ The two available estimation methods, \emph{method of
   closed formula is used to compute \var{efficiency} from \var{mean} and
   \var{var}. The \var{ctrl} argument is not used in this case.
 
-  In case of a censored distribution, the \sample mean is not a consistent
+  In case of a censored distribution, the sample mean is not a consistent
   estimator for \var{lambda0} because the expectation of the censored
   distribution is in general larger than \var{lambda0}. The sample variance
   simiarly deviates from the variance of the uncensored distribution.

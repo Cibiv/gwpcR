@@ -116,7 +116,7 @@
 #'   closed formula is used to compute \var{efficiency} from \var{mean} and
 #'   \var{var}. The \var{ctrl} argument is not used in this case.
 #'
-#'   In case of a censored distribution, the \sample mean is not a consistent
+#'   In case of a censored distribution, the sample mean is not a consistent
 #'   estimator for \var{lambda0} because the expectation of the censored
 #'   distribution is in general larger than \var{lambda0}. The sample variance
 #'   simiarly deviates from the variance of the uncensored distribution.
@@ -268,8 +268,8 @@ gwpcrpois.est <- function(x=NULL, mean=NULL, var=NULL, n.umis=NULL, method="mom"
 #'   \code{\link{gwpcrpois.est}}, the following settings can be modified
 #'   \describe{
 #'   \item{core}{number of CPU cores to use to compute group-specific estimates.
-#'   If set to a value greather than 1, the \code{\link[=pkg]{parallel}} package
-#'   must be loaded.}
+#'   If set to a value greather than 1, the \code{parallel} package must be
+#'   loaded.}
 #'
 #'   \item{obs.min.ingroup}{how many observed per-UMI read counts a group must
 #'   contain for group-specific estimates to be computed and used. Default is 5.}

@@ -77,8 +77,8 @@ Apart from the \var{ctrl} parameters described in
   \code{\link{gwpcrpois.est}}, the following settings can be modified
   \describe{
   \item{core}{number of CPU cores to use to compute group-specific estimates.
-  If set to a value greather than 1, the \code{\link[=pkg]{parallel}} package
-  must be loaded.}
+  If set to a value greather than 1, the \code{parallel} package must be
+  loaded.}
 
   \item{obs.min.ingroup}{how many observed per-UMI read counts a group must
   contain for group-specific estimates to be computed and used. Default is 5.}
