@@ -28,6 +28,9 @@ if [ $(git ls-remote --tags origin v$ver | wc -l) != 0 ]; then
 	exit 1
 fi
 
+# Run tests
+Rscript -e 'devtools::test()'
+
 echo "Updating DESCRIPTION" >&2
 sed -i.bak 's/^Version: \(.*\)$/Version: '"$ver"'/' DESCRIPTION
 rm DESCRIPTION.bak
