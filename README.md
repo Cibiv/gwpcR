@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.org/Cibiv/gwpcR.svg?branch=master)](https://travis-ci.org/Cibiv/gwpcR)
+[![Coverage Status](https://coveralls.io/repos/github/Cibiv/gwpcR/badge.svg?branch=master)](https://coveralls.io/github/Cibiv/gwpcR?branch=master)
 
 # Installation
 
