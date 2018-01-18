@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/Cibiv/gwpcR.svg?branch=master)](https://travis-ci.org/Cibiv/gwpcR)
+
 # Installation
 
 The most convenient way of installing `gwpcR` is via R's `devtools` package. The necessary steps
