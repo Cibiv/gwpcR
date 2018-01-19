@@ -61,6 +61,12 @@ test_that("gwpcr (efficiency=1e-6, finite cycle count)", {
   expect_identical(rgwpcr(n=5, efficiency=1e-6, molecules=1, cycles=2), c(1,1,1,1,1)/(1+1e-6)^2)
 })
 
+test_that("gwpcr (efficiency=1, finite cycle count)", {
+  expect_identical(rgwpcr(n=5, efficiency=1, molecules=1, cycles=0), c(1,1,1,1,1))
+  expect_identical(rgwpcr(n=5, efficiency=1, molecules=1, cycles=1), c(1,1,1,1,1))
+  expect_identical(rgwpcr(n=5, efficiency=1, molecules=1, cycles=2), c(1,1,1,1,1))
+})
+
 test_that("pgwpcr", {
   # XXX: Shouldn't this raise an error instead?
   expect_identical(pgwpcr(-1.0, efficiency=-1), as.numeric(NA))
