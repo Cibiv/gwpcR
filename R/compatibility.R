@@ -52,9 +52,11 @@ gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1,
     ctrl$include.mean.var <- TRUE
   if (!('obs.min.ingroup' %in% names(ctrl)))
     ctrl$obs.min.ingroup <- 2
+  if (!('use.nonconv.globalest' %in% names(ctrl)))
+    ctrl$use.nonconv.globalest <- TRUE
   if (!('use.nonconv.groupest' %in% names(ctrl)))
     ctrl$use.nonconv.groupest <- TRUE
 
   gwpcrpois.groupest(formula, data, method='mom', threshold=threshold,
-                     molecules=molecules, ctrl=ctrl)
+                     molecules=molecules, loss=loss, ctrl=ctrl)
 }
