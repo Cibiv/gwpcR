@@ -32,9 +32,9 @@ If you're already using [Conda](https://bioconda.github.io/), you can install TR
 
 The implemented model is described in detail in our paper
 
-*TRUmiCount: Correctly counting
-absolute numbers of molecules using unique molecular identifiers*, Florian G. Pflug & Arndt
-von Haeseler (2017), Preprint on [bioRxiv](https://www.biorxiv.org/content/early/2017/11/13/217778).
+Florian G. Pflug, Arndt von Haeseler. (2018). TRUmiCount: Correctly counting
+absolute numbers of molecules using unique molecular identifiers.
+<i>Bioinformatics</i>, DOI: https://doi.org/10.1093/bioinformatics/bty283.
 
 # License
 
