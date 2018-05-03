@@ -3,8 +3,9 @@ library(data.table)
 context('Galton-Watson PCR-Poisson (gwpcrpois) group-wise parameter estimation')
 
 EPS.REL.VAR <- 25e-2
-ESP.REL.EFFICIENCY <- 10e-2
-ESP.REL.LAMBDA0 <- 5e-2
+EPS.REL.EFFICIENCY <- 10e-2
+EPS.ABS.EFFICIENCY <- 0.1
+EPS.REL.LAMBDA0 <- 5e-2
 
 test_est_grp <- function(efficiency, efficiency.sd, lambda0, lambda0.sd) {
   test_that(paste0("group estimation (",
@@ -35,8 +36,8 @@ test_est_grp <- function(efficiency, efficiency.sd, lambda0, lambda0.sd) {
     expect_lt(abs(sqrt(g.est$efficiency.grp.var[1]) - efficiency.sd) / efficiency.sd, EPS.REL.VAR)
     expect_lt(abs(sqrt(g.est$lambda0.grp.var[1]) - lambda0.sd) / lambda0.sd, EPS.REL.VAR)
 
-    expect_lt(g.est[n.obs==500, mean(abs(efficiency - efficiency.true) / efficiency.true)], ESP.REL.EFFICIENCY)
-    expect_lt(g.est[n.obs==500, mean(abs(lambda0 - lambda0.true) / lambda0)], ESP.REL.LAMBDA0)
+    expect_lt(g.est[n.obs==500, mean(abs(efficiency - efficiency.true) / efficiency.true)], EPS.REL.EFFICIENCY)
+    expect_lt(g.est[n.obs==500, mean(abs(lambda0 - lambda0.true) / lambda0)], EPS.REL.LAMBDA0)
   })
 }
 
@@ -78,7 +79,7 @@ test_est_grp_mkey <- function() {
 
     # Check that the between-group standard deviations of efficiency and lambda0 are approximately recovered
     expect_lt(g.est[, max(abs(efficiency - efficiency.true))], EPS.ABS.EFFICIENCY)
-    expect_lt(g.est[, max(abs(lambda0 - lambda0.true) / lambda0)], ESP.REL.LAMBDA0)
+    expect_lt(g.est[, max(abs(lambda0 - lambda0.true) / lambda0)], EPS.REL.LAMBDA0)
   })
 }
 
