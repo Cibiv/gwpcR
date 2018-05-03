@@ -587,6 +587,9 @@ gwpcrpois.groupest.raw <- function(frame, frame.grp, method, threshold,  molecul
   include.mean.var <- as.logical(ctrl.get("include.mean.var", FALSE))
   verbose <- as.logical(ctrl.get("verbose", FALSE))
 
+  # Find columns of class "factor" in frame
+  factor.columns <- Filter(function(n) { is.factor(frame[[n]]) }, colnames(frame))
+
   # Compute raw (group-wise) parameter estimates
   if (verbose)
     message("Computing group-wise parameter estimates on ", cores, " cores")
@@ -596,6 +599,7 @@ gwpcrpois.groupest.raw <- function(frame, frame.grp, method, threshold,  molecul
   frame.grp <- rbindlist(my.lapply(groups, function(k) {
     # Fetch observations for group
     r <- frame.grp[k,]
+    stopifnot(nrow(r) == 1)
 
     # Fit model
     obs <- frame[k, count]
@@ -617,6 +621,15 @@ gwpcrpois.groupest.raw <- function(frame, frame.grp, method, threshold,  molecul
     # Generate row
     r[, c("n.umis", "n.obs", "efficiency.raw", "lambda0.raw", "loss.raw") :=
         list(frame[k, n.umis[1] ], length(obs), m$efficiency, m$lambda0, m$loss)]
+
+    # Remove superfluous labels from factor columns. Not doing so causes problems
+    # in rbindlist -- it seems that it concatenates *all* the levels together first,
+    # without checking for duplicates, and bails out if the resulting vector
+    # is longer than 2^31 entries.
+    r[, (factor.columns) := lapply(factor.columns, function(c) { factor(eval(as.name(c))) } )]
+
+    # Collect rows
+    r
   }))
   setkeyv(frame.grp, group.key)
 
