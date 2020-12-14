@@ -626,7 +626,8 @@ gwpcrpois.groupest.raw <- function(frame, frame.grp, method, threshold,  molecul
     # in rbindlist -- it seems that it concatenates *all* the levels together first,
     # without checking for duplicates, and bails out if the resulting vector
     # is longer than 2^31 entries.
-    r[, (factor.columns) := lapply(factor.columns, function(c) { factor(eval(as.name(c))) } )]
+    if (length(factor.columns) > 0)
+      r[, (factor.columns) := lapply(factor.columns, function(c) { factor(eval(as.name(c))) } )]
 
     # Collect rows
     r
