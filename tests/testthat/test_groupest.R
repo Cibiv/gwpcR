@@ -9,8 +9,8 @@ EPS.REL.LAMBDA0 <- 5e-2
 
 test_est_grp <- function(efficiency, efficiency.sd, lambda0, lambda0.sd) {
   test_that(paste0("group estimation (",
-                   "efficiency: ", 100*efficiency, '% +/- ', 100*efficiency.sd, "%",
-                   "lambda0: ", lambda0, "% +/- ", lambda0.sd), {
+                   "efficiency: ", 100*efficiency, '% +/- ', 100*efficiency.sd, "%", " ",
+                   "lambda0: ", lambda0, "% +/- ", lambda0.sd, "%", ")"), {
     n.obs <- rep(c(5, 15, 50, 150, 500, 1000), times=c(200, 200, 200, 200, 200, 200))
     efficiency <- 0.5
     efficiency.sd <- 0.1
