@@ -4,9 +4,18 @@
 \alias{gwpcrpois.est}
 \title{Parameter Estimation for PCR-Poisson Mixture}
 \usage{
-gwpcrpois.est(x = NULL, mean = NULL, var = NULL, n.umis = NULL,
-  method = "mom", must.converge = TRUE, threshold = 1, molecules = 1,
-  loss = expression(p0), ctrl = list())
+gwpcrpois.est(
+  x = NULL,
+  mean = NULL,
+  var = NULL,
+  n.umis = NULL,
+  method = "mom",
+  must.converge = TRUE,
+  threshold = 1,
+  molecules = 1,
+  loss = expression(p0),
+  ctrl = list()
+)
 }
 \arguments{
 \item{x}{a numeric vector containing the observed read counts per molecular

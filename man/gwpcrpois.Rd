@@ -7,8 +7,7 @@
 \alias{pgwpcrpois}
 \title{Poissonian Sampling Distribution of the PCR Product Distribution}
 \usage{
-rgwpcrpois(n, efficiency, lambda0, threshold = 1, molecules = 1,
-  cycles = Inf)
+rgwpcrpois(n, efficiency, lambda0, threshold = 1, molecules = 1, cycles = Inf)
 
 dgwpcrpois(c, efficiency, lambda0, threshold = 1, molecules = 1)
 

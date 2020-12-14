@@ -4,8 +4,15 @@
 \alias{gwpcrpois.groupest}
 \title{Group-wise Parameter Estimation for PCR-Poisson Mixture}
 \usage{
-gwpcrpois.groupest(formula, data, method = "mom", threshold = 1,
-  molecules = 1, loss = expression(p0), ctrl = list())
+gwpcrpois.groupest(
+  formula,
+  data,
+  method = "mom",
+  threshold = 1,
+  molecules = 1,
+  loss = expression(p0),
+  ctrl = list()
+)
 }
 \arguments{
 \item{formula}{Formula of the form \code{reads ~ key1 + key2 + ...},

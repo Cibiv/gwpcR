@@ -21,4 +21,4 @@ Description: Implements the necessary distributions and parameter estimation
     branching process, and on Poissonan sampling to model high-throughput
     sequencing.
 License: GPL
-RoxygenNote: 6.0.1
+RoxygenNote: 7.1.1

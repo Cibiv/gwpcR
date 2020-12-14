@@ -4,8 +4,14 @@
 \alias{gwpcrpois.mom.groupwise}
 \title{Compatibility wrapper of \code{\link{gwpcrpois.groupest}}}
 \usage{
-gwpcrpois.mom.groupwise(formula, data, threshold = 1, molecules = 1,
-  loss = expression(p0), ctrl = list())
+gwpcrpois.mom.groupwise(
+  formula,
+  data,
+  threshold = 1,
+  molecules = 1,
+  loss = expression(p0),
+  ctrl = list()
+)
 }
 \description{
 Uses the \emph{method of moments} and sets the \var{ctrl} parameters to

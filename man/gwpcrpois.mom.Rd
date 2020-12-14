@@ -4,8 +4,14 @@
 \alias{gwpcrpois.mom}
 \title{Compatibility wrapper of \code{\link{gwpcrpois.est}}}
 \usage{
-gwpcrpois.mom(mean, var, threshold = 1, molecules = 1, ctrl = list(),
-  nonconvergence.is.error = FALSE)
+gwpcrpois.mom(
+  mean,
+  var,
+  threshold = 1,
+  molecules = 1,
+  ctrl = list(),
+  nonconvergence.is.error = FALSE
+)
 }
 \description{
 Compatibility wrapper of \code{\link{gwpcrpois.est}}
