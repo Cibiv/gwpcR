@@ -16,8 +16,10 @@
 # along with gwpcR.  If not, see <http://www.gnu.org/licenses/>.
 
 #' @import utils
+#' @import stats
+#' @import data.table
+#' @import parallel
 
-#' @importFrom data.table data.table :=
 handle.parameters <- function(parameters, by, expr) {
   n <- 0
   for(p in names(parameters)) {

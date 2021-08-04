@@ -9,7 +9,8 @@ Imports:
     akima (>= 0.5-10),
     data.table (>= 1.8.11),
     statmod,
-    utils
+    utils,
+    parallel
 Suggests:
     parallel,
     testthat,
