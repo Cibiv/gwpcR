@@ -1,7 +1,7 @@
 Package: gwpcR
 Type: Package
 Title: Amplification+Sequencing Model Based on a Galton-Watson Branching Process and Poissonian Sampling
-Version: 1.0.1
+Version: 1.0.2
 Date: 2021-08-04
 Depends:
     R (>= 3.1.0)
