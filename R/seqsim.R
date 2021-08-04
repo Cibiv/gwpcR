@@ -36,9 +36,11 @@
 #'
 #' @param abundances vector of (integral) abundances of different (DNA or RNA) fragments
 #'
-#' @param total.reads.target the target for the total number of sequencing reads
+#' @param reads.target the target for the total number of sequencing reads
 #'
 #' @param efficiency efficiency of amplification
+#'
+#' @param molecules initial copy number of fragments
 #'
 #' @param cycles number of amplification cycles used for simulation. By default,
 #'   a large enough value is used to make the results virtually indistinguishable

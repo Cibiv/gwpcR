@@ -9,13 +9,15 @@ seqsim(abundances, reads.target, efficiency, molecules = 1, cycles = Inf)
 \arguments{
 \item{abundances}{vector of (integral) abundances of different (DNA or RNA) fragments}
 
+\item{reads.target}{the target for the total number of sequencing reads}
+
 \item{efficiency}{efficiency of amplification}
+
+\item{molecules}{initial copy number of fragments}
 
 \item{cycles}{number of amplification cycles used for simulation. By default,
 a large enough value is used to make the results virtually indistinguishable
 from the limit for \eqn{cycles \to \infty}}
-
-\item{total.reads.target}{the target for the total number of sequencing reads}
 }
 \value{
 a vector with the same length as \var{abundances} containing a read count

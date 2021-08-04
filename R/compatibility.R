@@ -17,7 +17,9 @@
 
 #' Compatibility wrapper of \code{\link{gwpcrpois.est}}
 #'
-#' @seealso \code{\link{gwpcrpois.est}}
+#' @param nonconvergence.is.error synonym for \code{must.converge}
+#'
+#' @describeIn gwpcrpois.est
 #'
 #' @export
 gwpcrpois.mom <- function(mean, var, threshold=1, molecules=1,
@@ -29,11 +31,11 @@ gwpcrpois.mom <- function(mean, var, threshold=1, molecules=1,
 
 #' Compatibility wrapper of \code{\link{gwpcrpois.est}}
 #'
-#' @seealso \code{\link{gwpcrpois.est}}
+#' @describeIn gwpcrpois.est
 #'
 #' @export
 gwpcrpois.mle <- function(c, threshold=1, molecules=1) {
-  gwpcrpois.mle(c, threshold=threshold, molecules=molecules)
+  gwpcrpois.est(c, threshold=threshold, molecules=molecules)
 }
 
 #' Compatibility wrapper of \code{\link{gwpcrpois.groupest}}
@@ -42,7 +44,7 @@ gwpcrpois.mle <- function(c, threshold=1, molecules=1) {
 #' their previous defaults, i.e. \code{include.mean.var=TRUE},
 #' \code{obs.min.ingroup=2} and \code{use.nonconv.groupest=TRUE}.
 #'
-#' @seealso \code{\link{gwpcrpois.groupest}}
+#' @describeIn gwpcrpois.groupest
 #'
 #' @export
 gwpcrpois.mom.groupwise <- function(formula, data, threshold=1, molecules=1,
