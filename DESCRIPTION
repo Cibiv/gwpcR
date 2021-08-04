@@ -12,7 +12,6 @@ Imports:
     utils,
     parallel
 Suggests:
-    parallel,
     testthat,
     dgof
 Author: Florian G. Pflug
