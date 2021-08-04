@@ -13,6 +13,7 @@ cp -r 	DESCRIPTION \
 	R \
 	src \
 	man \
+	inst \
 	tests \
 	.cran-pkg
 
