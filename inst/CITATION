@@ -1,0 +1,19 @@
+citHeader("To cite gwpcR in publications use:")
+
+citEntry(
+  entry    = "Article",
+  title    = "TRUmiCount: correctly counting absolute numbers of molecules using unique molecular identifiers",
+  author   = personList(as.person("Florian G. Pflug"), as.person("Arndt von Haeseler")),
+  journal  = "Bioinformatics",
+  year     = 2018,
+  volume   = 34,
+  number   = 18,
+  pages    = "3137--3144",
+  url      = "https://academic.oup.com/bioinformatics/article/34/18/3137/4972993",
+  doi      = "10.1093/bioinformatics/bty283",
+  textVersion = paste(
+  "Pflug, F. G. and von Haeseler, A. (2018)",
+  "TRUmiCount: correctly counting absolute numbers of molecules using unique molecular identifiers",
+  "Bioinformatics, 34(18), 3137-3144",
+  sep=". ")
+)
