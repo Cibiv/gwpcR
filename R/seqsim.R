@@ -77,7 +77,8 @@ seqsim <- function(abundances, reads.target, efficiency, molecules=1, cycles=Inf
   r.rle <- list(lengths=a.rle$lengths)
   r[a.i] <- unlist(lapply(1:length(a.rle$values), function(j) {
     if (a.rle$values[j] == 0) return(numeric(a.rle$lengths[j]))
-    rgwpcrpois(a.rle$lengths[j], efficiency=efficiency, lambda0=a.rle$values[j]*reads.target/total.a,
+    rgwpcrpois(a.rle$lengths[j], efficiency=efficiency,
+               lambda0=as.numeric(a.rle$values[j])*reads.target/total.a,
                threshold=0, molecules=molecules*a.rle$values[j], cycles=cycles)
   }))
   return(r)
