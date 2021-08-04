@@ -15,6 +15,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with gwpcR.  If not, see <http://www.gnu.org/licenses/>.
 
+#' @import utils
+
 #' @importFrom data.table data.table :=
 handle.parameters <- function(parameters, by, expr) {
   n <- 0

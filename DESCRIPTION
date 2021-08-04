@@ -8,7 +8,8 @@ Depends:
 Imports:
     akima (>= 0.5-10),
     data.table (>= 1.8.11),
-    statmod
+    statmod,
+    utils
 Suggests:
     parallel,
     testthat,
