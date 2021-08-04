@@ -44,7 +44,7 @@
 NULL
 
 #' @rdname gwpcrpois
-#' @useDynLib gwpcR gwpcrpois_simulate_c
+#' @useDynLib gwpcR, .registration=TRUE
 #' @export
 rgwpcrpois <- function(n, efficiency, lambda0, threshold=1, molecules=1, cycles=Inf) {
   if (!is.numeric(n) || (length(n) != 1) || (n != floor(n)) || (n < 0))

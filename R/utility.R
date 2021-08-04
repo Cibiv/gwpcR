@@ -70,7 +70,7 @@ ctrl.get <- function(key, default, ctrl=get('ctrl', envir=parent.frame())) {
     default
 }
 
-#' @useDynLib gwpcR gwpcr_refine_c
+#' @useDynLib gwpcR, .registration=TRUE
 refine <- function(points, width) .Call(gwpcr_refine_c, points, width)
 
 # Experimentally determined by KS-testing rgwpcr against pgwpcr. For

@@ -100,7 +100,7 @@
 NULL
 
 #' @rdname gwpcr
-#' @useDynLib gwpcR gwpcr_simulate_c
+#' @useDynLib gwpcR, .registration=TRUE
 #' @export
 rgwpcr <- function(n, efficiency, molecules=1, cycles=Inf, allow.ties=is.finite(cycles)) {
   if (!is.numeric(n) || (length(n) != 1) || (n != floor(n)) || (n < 0))
