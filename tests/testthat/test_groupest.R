@@ -8,6 +8,8 @@ EPS.ABS.EFFICIENCY <- 0.1
 EPS.REL.LAMBDA0 <- 5e-2
 
 test_est_grp <- function(efficiency, efficiency.sd, lambda0, lambda0.sd) {
+  skip_on_cran()
+  
   test_that(paste0("group estimation (",
                    "efficiency: ", 100*efficiency, '% +/- ', 100*efficiency.sd, "%", " ",
                    "lambda0: ", lambda0, "% +/- ", lambda0.sd, "%", ")"), {

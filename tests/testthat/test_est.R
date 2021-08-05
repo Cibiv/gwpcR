@@ -7,9 +7,12 @@ EPS.REL <- 5e-2
 
 test_that('Precompute Distribution', {
   suppressMessages(gwpcr.molecules.precompute(3))
+  expect_true(TRUE)
 })
 
 test_est <- function(efficiency, lambda0, n.obs, molecules, threshold, method) {
+  skip_on_cran()
+  
   p0 <- pgwpcrpois(threshold - 1, efficiency=efficiency, lambda0=lambda0,
                    molecules=molecules, threshold=0)
   test_that(paste0('method of moments (E#', efficiency, ', D=', lambda0,

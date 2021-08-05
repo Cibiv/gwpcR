@@ -6,6 +6,8 @@ P.TH <- 0.1
 TRIALS <- 6
 
 test_gwpcrpois <- function(efficiency, lambda0, threshold, molecules, N) {
+  skip_on_cran()
+  
   test_that(paste0("rgwpcrpois, pgwpcrpois (efficiency=", 100*efficiency,
                    "%. lambda0=", lambda0 , ")"), {
     i <- 0
@@ -57,6 +59,8 @@ test_gwpcrpois(0.99, 300, 2, 5, 1e4)
 test_gwpcrpois_1cycle <- function(efficiency, lambda0, N) {
   test_that(paste0("rgwpcrpois, pgwpcrpois (efficiency=", 100*efficiency,
                    "%, lambda0=", lambda0 , ", cycles=1)"), {
+                     skip_on_cran()
+                     
                      i <- 0
                      p <- 0
                      while((p <= P.TH) && (i < TRIALS)) {

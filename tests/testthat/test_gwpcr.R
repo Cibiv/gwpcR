@@ -6,6 +6,8 @@ P.TH <- 0.1
 TRIALS <- 6
 
 test_gwpcr <- function(efficiency, molecules, N) {
+  skip_on_cran()
+  
   test_that(paste0("rgwpcr, pgwpcr (efficiency=", 100*efficiency, "%)"), {
     i <- 0
     p <- 0
