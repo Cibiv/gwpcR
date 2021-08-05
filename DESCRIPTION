@@ -17,9 +17,9 @@ Suggests:
 Author: Florian G. Pflug
 Maintainer: Florian G. Pflug <florian.pflug@univie.ac.at>
 Description: Implements the necessary distributions and parameter estimation
-    procedures for a model of amplification and high-troughput sequencing. The
+    procedures for a model of amplification and high-throughput sequencing. The
     model is based on a mechanistic model of PCR amplification as a Galton-Watson
-    branching process, and on Poissonan sampling to model high-throughput
+    branching process, and on Poissonian sampling to model high-throughput
     sequencing.
 License: GPL
 RoxygenNote: 7.1.1
