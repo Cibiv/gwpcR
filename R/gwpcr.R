@@ -47,6 +47,12 @@
 #' @param efficiency efficiency of amplification
 #'
 #' @param molecules initial copy number
+#' 
+#' @param method the method used to draw from the PCR distribution. "simulate"
+#'   simulates a Galton-Watson branching process modeling PCR, "gamma" uses
+#'   approximates the PCR distribution with a Gamma distribution. By default,
+#'   the Gamma approximation is used for small efficiencies, where it is quite
+#'   good and where simulations are computationally expensive.
 #'
 #' @param cycles number of amplification cycles used for simulation. By default,
 #'   a large enough value is used to make the results virtually idistinguishable
@@ -102,13 +108,15 @@ NULL
 #' @rdname gwpcr
 #' @useDynLib gwpcR, .registration=TRUE
 #' @export
-rgwpcr <- function(n, efficiency, molecules=1, cycles=Inf, allow.ties=is.finite(cycles)) {
+rgwpcr <- function(n, efficiency, molecules=1, method=NULL, cycles=Inf, allow.ties=is.finite(cycles)) {
   if (!is.numeric(n) || (length(n) != 1) || (n != floor(n)) || (n < 0))
     stop('n must be a non-negative integral scalar')
   if (!is.numeric(efficiency) || (length(efficiency) != 1) || (efficiency < 0) || (efficiency > 1))
     stop('efficiency must be a numeric scalar within [0,1]')
   if (!is.numeric(molecules) || (length(molecules) != 1) || (molecules != floor(molecules)) || (molecules < 1))
     stop('molecules must be a positive integral scalar')
+  if (!is.null(method) && (!is.character(method) || (length(method) != 1)))
+    stop('method must be a single character value')
   if (!is.numeric(cycles) || (length(cycles) != 1) || (cycles != floor(cycles)) || (cycles < 0))
     stop('cycles must be a positive integral scalar or +Infinity')
   if (!is.logical(allow.ties) || (length(allow.ties) != 1) || is.na(allow.ties))
@@ -120,24 +128,26 @@ rgwpcr <- function(n, efficiency, molecules=1, cycles=Inf, allow.ties=is.finite(
   # Determine a suitable cycle count if set to "Infinity", which we take
   # to mean "as many as necessary so that the results are virtually
   # indistinguishable from the limit case
-  method <- if (is.infinite(cycles) && (efficiency >= E.MIN)) {
-    # Determine how many cycles are necessary on average to produce 1e6
-    # molecules. After that point, we assume that the additional variability
-    # is negligible.
-    cycles <- ceiling(log(1e6 / molecules) / log(1+efficiency))
+  method <- if (!is.null(method)) match.arg(method, c("simulate", "gamma")) else NULL
+  method <- if (is.null(method) && is.infinite(cycles) && (efficiency >= E.MIN)) {
     "simulate"
-  } else if (is.infinite(cycles) && (efficiency < E.MIN)) {
+  } else if (is.null(method) && is.infinite(cycles) && (efficiency < E.MIN)) {
     # Instead of simulating the PCR process, generate samples using the
     # gamma approximation of the PCR distribution
     "gamma"
-  } else if (is.finite(cycles)) {
+  } else if (is.null(method) && is.finite(cycles)) {
     # For finitely many cycles, always simulate
     "simulate"
-  }
-  else {
+  } else if (is.null(method)) {
     # Should never happen
     NA
-  }
+  } else method
+  
+  # Determine how many cycles are necessary on average to produce 1e6
+  # molecules. After that point, we assume that the additional variability
+  # is negligible.
+  if ((method == "simulate") && is.infinite(cycles))
+    cycles <- ceiling(log(1e6 / molecules) / log(1+efficiency))
 
   # Generate samples of lambda
   if ((method == "simulate") && (efficiency < 1.0)) {

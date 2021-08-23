@@ -4,7 +4,14 @@
 \alias{seqsim}
 \title{Simulate sequencing from a pool of DNA molecules with different abundances}
 \usage{
-seqsim(abundances, reads.target, efficiency, molecules = 1, cycles = Inf)
+seqsim(
+  abundances,
+  reads.target,
+  efficiency,
+  molecules = 1,
+  method = NULL,
+  cycles = Inf
+)
 }
 \arguments{
 \item{abundances}{vector of (integral) abundances of different (DNA or RNA) fragments}
@@ -14,6 +21,12 @@ seqsim(abundances, reads.target, efficiency, molecules = 1, cycles = Inf)
 \item{efficiency}{efficiency of amplification}
 
 \item{molecules}{initial copy number of fragments}
+
+\item{method}{the method used to draw from the PCR distribution. "simulate"
+simulates a Galton-Watson branching process modeling PCR, "gamma" uses
+approximates the PCR distribution with a Gamma distribution. By default,
+the Gamma approximation is used for small efficiencies, where it is quite
+good and where simulations are computationally expensive.}
 
 \item{cycles}{number of amplification cycles used for simulation. By default,
 a large enough value is used to make the results virtually indistinguishable

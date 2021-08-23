@@ -41,6 +41,12 @@
 #' @param efficiency efficiency of amplification
 #'
 #' @param molecules initial copy number of fragments
+#' 
+#' @param method the method used to draw from the PCR distribution. "simulate"
+#'   simulates a Galton-Watson branching process modeling PCR, "gamma" uses
+#'   approximates the PCR distribution with a Gamma distribution. By default,
+#'   the Gamma approximation is used for small efficiencies, where it is quite
+#'   good and where simulations are computationally expensive.
 #'
 #' @param cycles number of amplification cycles used for simulation. By default,
 #'   a large enough value is used to make the results virtually indistinguishable
@@ -52,7 +58,7 @@
 #' @seealso \code{\link{gwpcrpois}}
 #'
 #' @export
-seqsim <- function(abundances, reads.target, efficiency, molecules=1, cycles=Inf) {
+seqsim <- function(abundances, reads.target, efficiency, molecules=1, method=NULL, cycles=Inf) {
   # Validate parameters
   if (!is.numeric(abundances) || any(abundances != floor(abundances)) || any(!is.finite(abundances)) || any(abundances < 0))
     stop("abundances must be non-negative integers")
@@ -62,6 +68,8 @@ seqsim <- function(abundances, reads.target, efficiency, molecules=1, cycles=Inf
     stop('efficiency must be a numeric scalar within [0,1]')
   if (!is.numeric(molecules) || (length(molecules) != 1) || (molecules != floor(molecules)) || (molecules < 1))
     stop('molecules must be a positive integral scalar')
+  if (!is.null(method) && (!is.character(method) || (length(method) != 1)))
+    stop('method must be a single character value')
   if (!is.numeric(cycles) || (length(cycles) != 1) || (cycles != floor(cycles)) || (cycles < 0))
     stop('cycles must be a positive integral scalar or +Infinity')
 
@@ -79,7 +87,8 @@ seqsim <- function(abundances, reads.target, efficiency, molecules=1, cycles=Inf
     if (a.rle$values[j] == 0) return(numeric(a.rle$lengths[j]))
     rgwpcrpois(a.rle$lengths[j], efficiency=efficiency,
                lambda0=as.numeric(a.rle$values[j])*reads.target/total.a,
-               threshold=0, molecules=molecules*a.rle$values[j], cycles=cycles)
+               threshold=0, molecules=molecules*a.rle$values[j],
+               method=method, cycles=cycles)
   }))
   return(r)
 }
